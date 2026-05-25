@@ -28,7 +28,7 @@ title: 代币注册表
 
 调用 `register_token`，传入唯一的代币 ID、名称、符号、小数位数和最大供应量。将 `external_authorization_required` 设置为 `true` 需要在代币可以被花费之前获得 `external_authorization_party` 的批准，该方使用 `prehook_public` 或 `prehook_private` 在特定的过期区块高度为特定所有者解锁余额。管理员稍后可以通过 `update_token_management` 更新 `external_authorization_party`。
 
-注册后，代币可以公开铸造（`mint_public`）或私密铸造（`mint_private），并可以公开销毁（`burn_public`）或私密销毁（`burn_private`）。如果调用者不是管理员，铸造和销毁需要 `MINTER_ROLE`/`BURNER_ROLE` 或 `SUPPLY_MANAGER_ROLE`。
+注册后，代币可以公开铸造（`mint_public`）或私密铸造（`mint_private`），并可以公开销毁（`burn_public`）或私密销毁（`burn_private`）。如果调用者不是管理员，铸造和销毁需要 `MINTER_ROLE`/`BURNER_ROLE` 或 `SUPPLY_MANAGER_ROLE`。
 
 所有者可以公开转账代币（`transfer_public`）或私密转账（`transfer_private`），并可以使用 `transfer_public_to_private` 和 `transfer_private_to_public` 在公共和私有余额之间转换。
 
