@@ -176,10 +176,10 @@ function App() {
               disabled={executing || age === ""}
             >
               {executing ? (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px" }}>
+                <>
                   <span className="spinner" />
                   <span>正在生成零知识证明...</span>
-                </div>
+                </>
               ) : (
                 <span>⚡ 生成 ZK 证明并验证</span>
               )}

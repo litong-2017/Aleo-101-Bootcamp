@@ -11,7 +11,7 @@ export default defineConfig({
     target: "esnext",
   },
   optimizeDeps: {
-    exclude: ["@provablehq/wasm", "@provablehq/sdk"],
+    exclude: ["@provablehq/wasm"],
   },
   server: {
     headers: {
