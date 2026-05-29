@@ -71,7 +71,7 @@ function App() {
         console.warn("Polling error:", err);
       }
 
-      if (attempts >= 40) {
+      if (attempts >= 100) { // 增加轮询次数到 100（5分钟），应对 Testnet 拥堵
         setTxStatus("timeout");
         setExecuting(false);
         clearInterval(pollIntervalRef.current);
@@ -113,8 +113,8 @@ function App() {
           program: PROGRAM_ID,
           function: "verify_age",
           inputs: [`${ageNum}u8`, `${AGE_LIMIT}u8`],
-          fee: 100_000, // 0.1 Credits
-          privateFee: false,
+          fee: 100_000, // 0.1 Credits，常规执行足够
+          privateFee: true, // 改为 true！水龙头的测试币多为隐私记录，使用公开余额支付手续费会报错
         });
 
         if (tx && tx.transactionId) {
