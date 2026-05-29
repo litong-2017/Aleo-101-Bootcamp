@@ -1,4 +1,5 @@
-import React, { useMemo } from "react";
+/* eslint-disable react/prop-types */
+import { useMemo } from "react";
 import { AleoWalletProvider } from "@provablehq/aleo-wallet-adaptor-react";
 import {
   WalletModalProvider,
