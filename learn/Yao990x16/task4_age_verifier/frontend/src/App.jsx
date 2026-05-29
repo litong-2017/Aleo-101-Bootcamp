@@ -103,7 +103,7 @@ function App() {
         <div className="contract-info">
           <span>📋 合约已部署：</span>
           <a
-            href={`${EXPLORER_URL}/${PROGRAM_ID}`}
+            href={`${EXPLORER_URL}/${PROGRAM_ID}?network=testnet`}
             target="_blank"
             rel="noopener noreferrer"
             className="contract-link"
@@ -176,10 +176,10 @@ function App() {
               disabled={executing || age === ""}
             >
               {executing ? (
-                <>
+                <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "10px" }}>
                   <span className="spinner" />
                   <span>正在生成零知识证明...</span>
-                </>
+                </div>
               ) : (
                 <span>⚡ 生成 ZK 证明并验证</span>
               )}
@@ -229,7 +229,7 @@ function App() {
                 <span className="proof-label">合约地址</span>
                 <a
                   className="proof-value tx-link"
-                  href={`${EXPLORER_URL}/${PROGRAM_ID}`}
+                  href={`${EXPLORER_URL}/${PROGRAM_ID}?network=testnet`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
