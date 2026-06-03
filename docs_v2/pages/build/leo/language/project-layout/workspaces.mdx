@@ -2,6 +2,187 @@
 title: Workspaces
 ---
 
-# Workspaces
+# 工作区 (Workspaces)
+一个 Leo 工作区（Workspace）将多个 Leo 包（程序或库）组合在同一个根目录下。当你在工作区根目录运行 leo build 或 leo test 等命令时，Leo 会按照正确的依赖顺序对每个成员进行操作——无需手动安排先后顺序。
 
+当你的应用程序由多个相互交互的程序组成时，工作区非常有用。例如，一个 DeFi 协议可能包含一个代币（token）程序和一个依赖于该代币程序的兑换（swap）程序。工作区让你只需一条命令就能对它们全部进行构建、测试和清理。
+## 创建工作区 (Creating a Workspace)
+快速启动工作区的方法是使用`leo new`脚手架生成一个：
+```
+leo new --workspace my_project
+```
+这会创建 my_project/ 目录，其中包含一个 members 数组为空的 workspace.json 文件。--workspace 标志与 --library 标志是互斥的——工作区只是一个组合包的根目录，它本身并不是一个包，因此它没有 src/、program.json 或 tests/ 目录。
+
+同样地，你也可以在任何目录下手动创建 workspace.json。它包含一个 members 数组，列出了指向每个成员包的相对路径：
+```
+{
+  "members": ["token", "swap"]
+}
+```
+其中的每个条目都是指向包含标准Leo包（带有独立的`program.json`和`src/main.leo)`的目录路径。
+### 通配符成员 (Glob Members)
+`members`中的条目也可以是通配符（glob）模式，它们会相对于工作区根目录进行解析：
+```
+{
+  "members": ["libraries/core", "programs/*"]
+}
+```
+支持标准的通配符语法，包括`*`（匹配单个路径片段）、`**`（跨目录递归匹配）、`?` 以及字符集（如 `[abc]`）。只有当匹配到的目录中包含 `program.json `时，该匹配才会被包含进来；其他匹配（文件、不带清单文件的目录、非 UTF-8 路径）都会被静默跳过。
+
+匹配到零个包的通配符会记录一条警告并继续执行——这不属于错误：
+```
+workspace member glob `programs/*` in <root> matched no packages
+```
+而指向缺失目录的字面量（显式）条目仍然会报错，因此显式路径依然会受到严格校验。字面量条目会在通配符之前被解析，并且成员会通过规范路径（canonical path）进行去重，因此同时被字面量条目和通配符匹配到的目录只会被包含一次。
+
+### 添加成员 (Adding Members)
+在工作区内的任何地方运行 `leo new <name> `时，新包的路径会自动追加到包含它的 `workspace.json`中，并且 Leo 会打印：
+```
+Added <name> to the enclosing workspace.
+```
+如果新包已经涵盖在现有条目中（无论是与新包相对路径相同的字面量路径，还是匹配它的通配符），则会自动静默跳过追加。如果新包最终位于检测到的工作区根目录之外（例如`leo new ../sibling`），Leo 会打印一条警告，且不对 `workspace.json `做任何修改：
+```
+new package at `...` is not inside the discovered workspace root `...`; skipping auto-add
+```
+现有成员的顺序会被保留；新条目会被追加到末尾。如果你根本不想手动编辑`members`，可以使用类似`programs/*`的通配符条目（参见通配符成员）——在该目录下创建的新包无需修改`workspace.json`即可被直接捕获。
+## 目录结构 (Directory Structure)
+一个典型的工作区结构如下所示：
+```
+my_project/
+├── workspace.json
+├── token/
+│   ├── program.json
+│   └── src/
+│       └── main.leo
+└── swap/
+    ├── program.json
+    └── src/
+        └── main.leo
+```
+每个成员都是一个自包含的 Leo 包。编译时，它拥有自己独立的`build/`和`output/`目录。
+
+## 成员依赖关系 (Member Dependencies)
+成员之间可以使用工作区依赖（workspace dependencies）相互依赖。例如，如果`swap`依赖于`token`，可以通过以下方式添加该依赖：
+```
+cd swap/
+leo add --workspace token
+```
+这会将一个工作区依赖条目写入该成员的`program.json`中：
+
+`swap/program.json`
+```
+{
+  "program": "swap.aleo",
+  "version": "0.1.0",
+  "description": "",
+  "license": "MIT",
+  "dependencies": [
+    {
+      "name": "token.aleo",
+      "location": "workspace",
+      "path": null,
+      "edition": null
+    }
+  ],
+  "dev_dependencies": null
+}
+```
+工作区依赖使用 `"location": "workspace" `且不需要 `path——Leo `会在构建时自动从 `workspace.json` 中解析该成员的位置。
+
+或者，成员也可以使用本地路径依赖，即`"location": "local"`和显式的相对路径。不过更推荐使用工作区依赖，因为它们写起来更短，而且在你调整目录结构时不会失效。
+## 构建顺序 (Build Order)
+Leo 通过分析工作区成员之间的依赖图，自动确定正确的构建顺序。当一个成员依赖另一个成员时，Leo 会确保依赖项先被构建。
+
+在上面的示例中`token`没有依赖项，而`swap`依赖于`token`，因此`Leo`会先构建`token`，然后再构建`swap`。无论成员在`workspace.json`中的排列顺序如何，该顺序都会被自动计算出来。
+
+如果依赖图中包含循环依赖（例如 A 依赖 B，而 B 又依赖 A），Leo 会报告错误，而不是尝试进行构建。
+
+## 使用工作区 (Working with Workspaces)
+### 构建 (Building)
+在工作区根目录下，leo build 会按照依赖顺序编译所有成员：
+```
+leo build
+```
+在成员目录内部，它只构建该成员：
+```
+cd token/
+leo build
+```
+### 测试 (Testing)
+在工作区根目录下，leo test 会运行所有成员的测试套件：
+```
+leo test
+```
+在成员目录内部，它只测试该成员：
+```
+cd swap/
+leo test
+```
+### 清理 (Cleaning)
+在工作区根目录下，leo clean 会清除所有成员的构建产物：
+```
+leo clean
+```
+在成员目录内部，它只清理该成员：
+```
+cd token/
+leo clean
+```
+### 部署 (Deploying)
+在工作区根目录下，leo deploy 会使用共享的虚拟机（VM）按照依赖顺序部署所有成员，以进行准确的费用估算。成员之间共享的程序只会被部署一次：
+```
+leo deploy --broadcast
+```
+在成员目录内部，它只部署该成员：
+```
+cd swap/
+leo deploy --broadcast
+```
+## 指定特定成员 (Targeting a Specific Member)
+使用 `--package`（或 `-p`）标志可以在工作区内的任何地方指定操作特定的成员：
+```
+leo build -p swap
+leo test --package token
+leo deploy --broadcast -p swap
+leo clean -p swap
+```
+该标志接受以下任意一种名称格式：
+
+成员的目录名称（例如 `token`）
+
+带有`.aleo`后缀的程序名称（例如`token.aleo`）
+
+不带后缀的程序名称（例如`token`）
+
+如果名称与任何工作区成员都不匹配，Leo 会报告错误，并建议检查`workspace.json`中的成员列表。
+
+## 示例 (Example)
+这是一个包含两个成员的极简工作区`token`程序暴露了一个`mint`函数：
+```
+program token.aleo {
+    fn mint(owner: address, amount: u32) -> u32 {
+        return amount;
+    }
+
+    @noupgrade
+    constructor() {}
+}
+```
+`swap`程序导入并调用了`token`：
+```
+import token.aleo;
+
+program swap.aleo {
+    fn do_swap(owner: address, amount: u32) -> u32 {
+        return token.aleo::mint(owner, amount);
+    }
+
+    @noupgrade
+    constructor() {}
+}
+```
+从工作区根目录进行构建会先编译`token`（无依赖项），然后再编译`swap`。
+
+## 向后兼容性 (Backward Compatibility)
+没有`workspace.json`的项目仍然可以像以前一样正常工作。工作区是完全自主选择加入的（opt-in）——Leo 只有在从当前工作目录向上逐级查找目录树并发现`workspace.json`时，才会激活工作区行为。
 TODO: Add Leo workspaces content.
