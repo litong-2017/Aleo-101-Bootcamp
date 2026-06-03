@@ -70,6 +70,33 @@ async function deployProgram(program) {
   return tx_id;
 }
 
+// Execute a function on-chain (submit transaction to Aleo testnet)
+async function executeOnChain(privateKey, programName, aleoFunction, inputs, fee = 0.5) {
+  const keyProvider = new AleoKeyProvider();
+  keyProvider.useCache(true);
+
+  const networkClient = new AleoNetworkClient("https://api.provable.com/v2");
+  const account = new Account({ privateKey });
+  const recordProvider = new NetworkRecordProvider(account, networkClient);
+
+  const programManager = new ProgramManager(
+    "https://api.provable.com/v2",
+    keyProvider,
+    recordProvider,
+  );
+  programManager.setAccount(account);
+
+  // execute() takes an options object, not positional parameters
+  const tx_id = await programManager.execute({
+    programName: programName,
+    functionName: aleoFunction,
+    priorityFee: fee,
+    privateFee: false,
+    inputs: inputs,
+  });
+  return tx_id;
+}
+
 // Verify a standalone SNARK proof. This verifies a proof from a circuit that is not necessarily
 // an Aleo program execution — useful for verifying proofs received from external sources.
 async function verifySnarkProof(verifyingKeyStr, proofStr, inputs) {
@@ -80,5 +107,5 @@ async function verifySnarkProof(verifyingKeyStr, proofStr, inputs) {
   });
 }
 
-const workerMethods = { localProgramExecution, getPrivateKey, deployProgram, verifyProof: verifySnarkProof };
+const workerMethods = { localProgramExecution, getPrivateKey, deployProgram, executeOnChain, verifyProof: verifySnarkProof };
 expose(workerMethods);
