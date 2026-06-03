@@ -2,6 +2,31 @@
 title: Manifest
 ---
 
-# Manifest
+# 清单文件 (Manifest)
+
+program.json 是 Leo 的清单文件，用于配置我们的开发包（Package）。
+
+**program.json 示例**
+```
+{
+  "program": "hello.aleo",
+  "version": "0.1.0",
+  "description": "",
+  "license": "MIT",
+  "dependencies": null,
+  "dev_dependencies": null
+}
+```
+program 字段中的 程序 ID (Program ID) 是该程序的官方名称。在你发布程序之后，其他开发者将能够通过该名称查找你的程序。
+```
+    "program": "hello.aleo",
+```
+**依赖项 (Dependencies)** 在添加时，会被同步写入到同名的 `dependencies` 字段中。同时，这些依赖项的具体版本也会在 `leo.lock` 文件中进行锁定。
+
+
+`src/` 目录是存放你所有 Leo 源代码的地方。该项目的 **主入口点(Main entry point)** 是该目录下一个被命名为 `main.leo` 的文件。
+
+为了能够成功且正常地执行许多 Leo CLI（命令行工具）命令，你的项目中必须包含此文件。
+
 
 TODO: Add Leo manifest content.
