@@ -2,6 +2,480 @@
 title: Leo Syntax Cheatsheet
 ---
 
-# Leo Syntax Cheatsheet
+# Leo 语法速查表Leo Syntax Cheatsheet
+
+## 1. 文件导入（File Import）
+```
+import foo.aleo;
+```
+## 2. 程序(Programs)
+```
+program hello.aleo {
+    // 代码逻辑
+}
+```
+## 3. 基本数据类型(Primitive Data Types)
+```
+// 布尔值 (true 或 false)
+let b: bool = false;
+
+// 有符号 32 位整数 (同样可选: i8, i16, i64, i128)
+let i: i32 = -10i32;
+
+// 无符号 32 位整数 (同样可选: u8, u16, u64, u128)
+let ui: u32 = 10u32;
+
+// 字段元素 (Field，用于密码学零知识证明计算)
+let a: field = 1field;
+
+// 组元素 (Group，用于椭圆曲线操作)
+let g: group = 0group;
+
+// 标量元素 (Scalar，用于椭圆曲线算术)
+let s: scalar = 1scalar;
+
+// Aleo 区块链地址
+let receiver: address = aleo1ezamst4pjgj9zfxqq0fwfj8a4cjuqndmasgata3hggzqygggnyfq6kmyd4;
+
+// 数字签名 (用于身份验证和签名校验)
+let s: signature = sign1ftal5ngunk4lv9hfygl45z35vqu9cufqlecumke9jety3w2s6vqtjj4hmjulh899zqsxfxk9wm8q40w9zd9v63sqevkz8zaddugwwq35q8nghcp83tgntvyuqgk8yh0temt6gdqpleee0nwnccxfzes6pawcdwyk4f70n9ecmz6675kvrfsruehe27ppdsxrp2jnvcmy2wws6sw0egv;
+```
+### 类型转换(Type Casting)
+```
+// 整数类型之间的转换
+let a: u8 = 255u8;
+let b: u16 = a as u16; // 255u8 转换为 255u16
+let c: u32 = b as u32; // 255u16 转换为 255u32
+let d: i32 = c as i32; // 255u32 转换为 255i32
+
+// 字段与整数之间的转换
+let f: field = 10field;
+let i: i32 = f as i32; // 字段转换为 i32
+let u: u64 = f as u64; // 字段转换为 u64
+
+// 标量与字段之间的转换
+let s: scalar = 5scalar;
+let f_from_scalar: field = s as field; // 标量转换为字段
+
+// 组与字段之间的转换
+let g: group = 1group;
+let f_from_group: field = g as field; // 组转换为字段
+
+// 地址转换 (仅支持合法转换)
+let addr: address = aleo1ezamst4pjgj9zfxqq0fwfj8a4cjuqndmasgata3hggzqygggnyfq6kmyd4;
+let addr_field: field = addr as field; // 地址转换为字段
+```
+
+基本类型包括：address, bool, field, group, i8, i16, i32, i64, i128, u8, u16, u32, u64, u128, scalar。
+
+除了 签名 (signature) 类型之外，所有这些基本类型之间都可以进行类型转换。
+
+你可以将地址 (address) 转换为字段 (field)，但反之则不行（不能将字段转换为地址）。
+
+### 可选类型 / 选项类型 (Option Types)
+```
+// 布尔可选值 (true、false 或 none)
+let b_some: bool? = true;
+let b_none: bool? = none;
+
+// 解包 (Unwrap) 可选值
+let b_true = b_some.unwrap();
+let b_false = b_none.unwrap_or(false);
+
+// 有符号 32 位整数可选类型 (同样可选: i8, i16, i64, i128)
+let i_some: i32? = -10i32;
+let i_none: i32? = none;
+
+// 无符号 32 位整数可选类型 (同样可选: u8, u16, u64, u128)
+let ui_some: u32? = 10u32;
+let ui_none: u32? = none;
+
+// 字段元素可选类型 (用于密码学计算)
+let a_some: field? = 1field;
+let a_none: field? = none;
+
+// 组元素可选类型 (用于椭圆曲线操作)
+let g_some: group? = 0group;
+let g_none: group? = none;
+
+// 标量元素可选类型 (用于椭圆曲线算术)
+let s_some: scalar? = 1scalar;
+let s_none: scalar? = none;
+```
+address（地址）类型和 signature（签名）类型都没有 Option（可选）变体。
+
+## 4. 记录（Records）
+**定义记录(用于链上带有所有权的资产/状态管理)：**
+```
+record Token {
+    owner: address,
+    amount: u64,
+}
+```
+**创建记录:**
+```
+let user: User = User {
+    owner: aleo1ezamst4pjgj9zfxqq0fwfj8a4cjuqndmasgata3hggzqygggnyfq6kmyd4,
+    balance: 1000u64,
+};
+```
+**访问记录字段:**
+```
+let user_address: address = user.owner;
+let user_balance: u64 = user.balance;
+```
+## 5. 结构(Structs)
+**定义结构体:**
+```
+struct Message {
+    sender: address,
+    object: u64,
+}
+```
+**创建结构体实例：**
+```
+let msg: Message = Message {
+    sender: aleo1ezamst4pjgj9zfxqq0fwfj8a4cjuqndmasgata3hggzqygggnyfq6kmyd4,
+    object: 42u64,
+};
+```
+**访问结构体字段:**
+```
+let sender_address: address = msg.sender;
+let object_value: u64 = msg.object;
+```
+**跨程序引用:** 在外部程序 external_program.aleo 中定义的结构体 ExternalStruct，可以通过 external_program.aleo::ExternalStruct 语法在程序外部进行引用。
+
+### 常量泛型 (Const Generics)
+```
+struct Matrix::[N: u32, M: u32] {
+    data: [field; N * M],
+}
+
+// 使用方式
+let m = Matrix::[2, 2] { data: [0, 1, 2, 3] };
+```
+**注意：** 泛型结构体目前无法直接从程序外部导入，但可以在子模块（submodules）中声明和使用。常量泛型参数可接受的类型包括：整数类型、布尔值（bool）、标量（scalar）、组（group）、字段（field）和地址（address）。
+
+### 结构体的可选类型 (Option Types)
+
+**创建结构体的选项类型实例：**
+```
+struct Point {
+    x : u32,
+    y : u32
+}
+
+let point1: Point? = Point {
+    x: 8u32,
+    y: 41u32,
+};
+let point2: Point? = none;
+
+let point1_val = point1.unwrap();
+let point2_val = point2.unwrap_or(Point {x: 0u32, y: 0u32,});
+```
+**注意：** 由于地址（address）和签名（signature）类型没有 Option 变体，因此**任何包含了这些类型元素的结构体，同样不能拥有 Option 变体。**
+
+## 6. 数组(Arrays)
+
+**声明数组:**
+```
+let arrb: [bool; 2] = [true, false];
+let arr: [u8; 4] = [1u8, 2u8, 3u8, 4u8];
+let empty: [u8; 0] = [];
+```
+**访问元素 (索引从 0 开始):**
+```
+let first: u8 = arr[0];  // 获取第一个元素
+let second: u8 = arr[1]; // 获取第二个元素
+```
+**遍历数组:**
+```
+let numbers: [u32; 3] = [5u32, 10u32, 15u32];
+
+let sum: u32 = 0u32;
+
+for i: u8 in 0u8..3u8 {
+    sum += numbers[i];
+}
+```
+## 7. 元组(Tuples)
+
+**声明元组:**
+```
+// 提示：元组不能为空！
+let t: (u8, bool, field) = (42u8, true, 100field);
+```
+**访问元组元素:**
+```
+// 方式 1：使用解构赋值
+let (a, b, c) = t;
+
+// 方式 2：使用基于点索引的语法访问
+let first: u8 = t.0;
+let second: bool = t.1;
+let third: field = t.2;
+```
+## 8. 函数 (Functions)
+Leo 4.0 中一共有三种函数类型：
+
+**入口函数 (Entry fn)**:定义在 program {} 内部。作为程序的公共接口，可以从外部调用。
+
+**辅助函数 (Helper fn)**:定义在 program {} 外部。作为入口函数使用的私有辅助函数。
+
+**最终函数 (final fn)**:定义在 program {} 外部。包含可重用的终结状态逻辑，在编译时会被内联到 final { } 代码块中。
+
+⚠️ **重要限制：** 无论是直接还是间接的递归调用，在 Leo 中都是严格禁止的。
+
+### 辅助函数(Helper fn)
+辅助函数用于计算纯逻辑。在 program {} 代码块外部声明。
+
+```
+fn compute(a: u64, b: u64) -> u64 {
+    return a + b;
+}
+```
+**配合常量泛型使用：(Const Generics)**
+```
+fn sum_first_n_ints::[N: u32]() -> u32 {
+    let sum = 0u32;
+    for i in 0u32..N {
+        sum += i;
+    }
+    return sum;
+}
+
+program main.aleo {
+    fn main() -> u32 {
+        return sum_first_n_ints::[5u32]();
+    }
+}
+```
+常量泛型参数支持的类型包括：整数类型、布尔值（bool）、标量（scalar）、组（group）、字段（field）和地址（address）。
+
+✅可以调用：其他辅助函数 (helper fn)
+
+❌ 不能调用：入口函数 (entry fn)
+
+### 入口函数(Entry fn)
+
+入口函数是程序的公开接口。在 program {} 代码块内部声明。它可以调用辅助函数，并能包含用于链上状态更新的 final { } 代码块。
+
+```
+fn subtract(a: u64, b: u64) -> u64 {
+    return a - b;
+}
+
+program example.aleo {
+    fn transfer(receiver: address, amount: u64) {
+        let balance: u64 = 1000u64;
+        let new_balance: u64 = subtract(balance, amount);
+    }
+}
+```
+✅ 可以调用：辅助函数 (helper fn)
+
+❌无法调用：另一个入口函数 (entry fn) —— 除非该入口函数来自其他外部程序（跨程序调用）。
+
+### 带有 final { } 代码块（更新链上状态）的入口函数(Entry fn with final { } (onchain state))
+
+当一个入口函数需要修改公开的链上状态时，它的返回值类型为 Final，并且必须包含一个 final { } 执行块。
+
+```
+program example.aleo {
+    mapping balances: address => u64;
+
+    fn mint(receiver: address, amount: u64) -> Final {
+        return final {
+            let current_balance: u64 = balances.get_or_use(receiver, 0u64);
+            balances.set(receiver, current_balance + amount);
+        };
+    }
+}
+```
+✅可以调用： 辅助函数 (helper fn)、最终函数 (final fn)
+
+❌不能调用：另一个入口函数 (entry fn) —— 除非来自其他外部程序。
+
+### 最终函数(final fn)
+
+final fn 包含可重用的状态终结化逻辑。它总是在编译时被直接内联到调用者的 final { } 代码块中。在 program {} 外部声明。
+```
+final fn update_balance(receiver: address, amount: u64) {
+    let current: u64 = balances.get_or_use(receiver, 0u64);
+    balances.set(receiver, current + amount);
+}
+```
+✅可以调用：其他最终函数 (final fn)
+
+❌不能调用：辅助函数 (helper fn) 或 入口函数 (entry fn)
+
+9. 循环(Loops)
+
+```
+let count: u32 = 0u32;
+
+for i: u32 in 0u32..5u32 {
+    count += 1u32;
+}
+```
+## 10. 条件语句 (Conditionals)
+```
+let a: u8 = 1u8;
+
+if a == 1u8 {
+    a += 1u8;
+} else if a == 2u8 {
+    a += 2u8;
+} else {
+    a += 3u8;
+}
+
+a = (a == 1u8) ? a + 1u8 : ((a == 2u8) ? a + 2u8 : a + 3u8); // 三元运算符格式 (Ternary format)
+```
+## 11. 链上存储(Onchain Storage)
+
+### 映射(Mappings）
+```
+mapping balances: address => u64;
+
+// 数据查询 (Querying)
+let contains_bal: bool = balances.contains(receiver);
+let get_bal: u64 = balances.get(receiver);
+let get_or_use_bal: u64 = balances.get_or_use(receiver, 0u64);
+
+// 数据修改 (Modifying)
+balances.set(receiver, 100u64);
+balances.remove(balances, receiver);
+
+// 外部程序的映射引用 (跨程序读取，严格只读 External mappings)
+let ext_contains: bool = external_program.aleo::balances.contains(receiver);
+let ext_get: u64 = external_program.aleo::balances.get(receiver);
+let ext_get_or_use: u64 = external_program.aleo::balances.get_or_use(receiver, 0u64);
+```
+### 存储变量(Storage Variables)
+```
+storage var: u8;
+
+// 数据查询 (Querying)
+let unwrap_var: u8 = var.unwrap();
+let unwrap_or_var: u8 = var.unwrap_or(0u8);
+
+// 数据修改 (Modifying)
+var = 8u8;
+var = none;
+
+// 外部程序的存储变量引用 (只读 External storage variables)
+let ext_var: u8 = external_program.aleo::var.unwrap();
+let ext_var_safe: u8 = external_program.aleo::var.unwrap_or(0u8);
+```
+### 存储向量(Storage Vectors)
+```
+storage vec: [u8];
+
+// 数据查询 (Querying)
+let len_vec: u32 = vec.len();
+let val: u8? = vec.get(idx);
+
+// 数据修改 (Modifying)
+vec.set(idx, value);
+vec.push(value);
+vec.pop();
+vec.swap_remove(idx); // 快速移除（用末尾元素覆盖目标索引以保持连续性）
+vec.clear();
+
+// 外部程序的存储向量引用 (只读 External storage vectors)
+let ext_len: u32 = external_program.aleo::vec.len();
+let ext_val: u8? = external_program.aleo::vec.get(idx);
+```
+## 12. 运算符与原生操作 (Operators)
+### 标准操作 (Standard)
+```
+// 算术运算符 (Arithmetic Operators，均拥有带 wrapped 截断后缀的溢出变体)
+let sum: u64 = a + b;       // 加法
+let diff: u64 = a - b;      // 减法
+let prod: u64 = a * b;      // 乘法
+let quot: u64 = a / b;      // 除法
+let power: u64 = a ** b;    // 幂运算
+let remainder: u64 = a % b;  // 求余/取模
+let neg: i64 = -(a as i64); // 取负
+let abs : i64 = neg.abs();  // 绝对值
+
+// 位运算符与布尔逻辑 (Bitwise/Boolean Operators)
+let logical_and: bool = a && b; // 逻辑与
+let logical_or: bool = a || b;  // 逻辑或
+let bitwise_and: u64 = a & b;   // 按位与
+let bitwise_or: u64 = a | b;    // 按位或
+let bitwise_xor: u64 = a ^ b;   // 按位异或
+let bitwise_not: u64 = !a;      // 按位取反
+let bitwise_shl: u64 = a << b   // 按位左移
+let bitwise_shr: u64 = a >> b   // 按位右移
+
+// 比较运算符 (Comparators)
+let eq: bool = a == b;   // 等于
+let neq: bool = a != b;  // 不等于
+let lt: bool = a < b;    // 小于
+let lte: bool = a <= b;  // 小于等于
+let gt: bool = a > b;    // 大于
+let gte: bool = a >= b;  // 大于等于
+
+// 椭圆曲线组与字段运算符 (Group & Field Operators)
+let g: group = group::GEN;               // 椭圆曲线组生成元
+let x: field = 0group.to_x_coordinate(); // 获取组元素的 X 坐标
+let y: field = 0group.to_y_coordinate(); // 获取组元素的 Y 坐标
+let doubled: group = 1field.double();    // 元素翻倍 (Double)
+let inverse: field = 1field.inv();       // 乘法逆元 (Multiplicative inverse)
+let squared: field = 1field.square();    // 平方值 (Square)
+let root: field = 1field.square_root();  // 平方根 (Square root)
+
+// 上下文全局相关表达式 (Context-dependent Expressions)
+let height: u32 = block.height;          // 当前区块高度
+let now: i64 = block.timestamp;          // 当前区块时间戳
+let this: address = self.address;        // 当前程序的合约地址
+let caller: address = self.caller;       // 直接调用当前函数的账户或合约地址
+let checksum: [u8, 32] = self.checksum;  // 当前程序的密码学校验和
+let edition: u16 = self.edition;         // 当前程序的版本号
+let owner: address = self.program_owner; // 部署该程序的初始所有者地址
+let signer: address = self.signer;       // 触发本次交易的签名人地址 (交易源头 Origin)
+
+// 二进制位序列化/反序列化 (Bit Serialization/Deserialization)
+let bits: [bool; 58] = Serialize::to_bits(value);      // 标准序列化 (包含结构类型元数据)
+let raw_bits: [bool; 32] = Serialize::to_bits_raw(value); // 纯原生序列化 (无元数据，仅包含原始位数据)
+
+// 断言与辅助工具 (Miscellaneous)
+assert(a);                // 断言 a 的值必须为 true
+assert_eq(a, b);          // 断言 a 和 b 必须完全相等
+assert_neq(b, c);         // 断言 b 和 c 必须不相等
+let ternary = boolean ? a : b; // 三元条件表达式
+```
+### 密码学原语 (Cryptographic)
+```
+// 伪随机数生成 (Randomization)
+let rand: u32 = ChaCha::rand_u32(); // 生成随机值，通用格式为 `ChaCha::rand_<类型>()`
+
+// 哈希函数 (支持 BHP, Pedersen, Poseidon, Keccak, SHA3)
+let hash: field = BHP256::hash_to_field(1u32);                 // 将任意类型哈希为任意指定类型
+let hash_raw: address = Poseidon2::hash_to_address_raw(1u8);   // 将原生底层类型哈希为特定目标类型
+let hash_native: [bool; 256] = Keccak256::hash_to_bits(0field); // 哈希为布尔位数组 (该操作仅对 Keccak 和 SHA3 开放)
+let hash_native_raw: [bool; 256] = Keccak256::hash_to_bits_raw(0field);
+
+// 承诺算法 (Commitment Algorithms - 支持 BHP, Pedersen)
+let commit: group = Pedersen64::commit_to_group(1u64, 1scalar); // 将任意类型承诺（Commit）为 field/group/address，需要一个标量（Scalar）作为盲因子/盐（Salt）
+
+// Schnorr 签名验证
+let schnorr: bool = signature::verify(sig, addr, 0field); // 验证 Aleo 原生的 Schnorr 签名
+
+// ECDSA 签名验证 (用于传统 Web3 兼容性，如 Keccak, SHA3)
+let ecdsa: bool = ECDSA::verify_keccak256(sig, addr, msg);     // 根据 ECDSA 公钥与消息的 Keccak256 哈希值来校验 ECDSA 签名
+let ecdsa_raw: bool = ECDSA::verify_keccak256_raw(sig, addr, msg); // 针对原生未哈希消息进行哈希并执行校验
+let ecdsa_eth: bool = ECDSA::verify_keccak256_eth(sig, eth_addr, msg); // 针对以太坊格式地址和原生消息的 Keccak256 哈希值执行校验
+
+let ecdsa_digest: bool = ECDSA::verify_digest(sig, addr, digest); // 直接根据 ECDSA 公钥和已预先哈希好的摘要（Digest）执行校验
+let ecdsa_digest_eth: bool = ECDSA::verify_digest_eth(sig, eth_addr, digest); // 针对以太坊地址和预哈希摘要进行验证
+```
+
+
+
 
 TODO: Add Leo syntax cheatsheet content.
