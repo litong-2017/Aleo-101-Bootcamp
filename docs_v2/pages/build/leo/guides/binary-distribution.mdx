@@ -2,6 +2,89 @@
 title: Binary Distribution
 ---
 
-# Binary Distribution
+# 二进制分发参考
 
-TODO: Add Leo binary distribution guide content.
+本页面记录 Leo 的发布产物结构和打包指南。它面向社区打包者、下游分发者，以及希望了解 Leo 二进制文件如何发布的高级用户。
+
+有关安装说明，请参阅 Getting Started - Installation。
+
+## 发布模型
+
+Leo 使用按 crate 发布的模型。`Leo repository` 中每个可发布的 crate 都会通过匹配 `{crate-name}-v{version}` 模式的 git 标签独立发布，例如 `leo-lang-v4.0.1`、`leo-fmt-v1.0.0`。
+
+当标签被推送后，CI 会构建跨平台二进制文件，并将其作为该标签下的 GitHub Release 发布。
+
+> 警告：本页面所描述的发布模型、产物命名约定以及 `cargo binstall` 元数据仅适用于 **4.0.2 之后** 的版本。更早的版本以更临时的方式发布，命名并不一致。
+
+## 发布 URL 模式
+
+GitHub Releases 发布在：
+
+```text
+https://github.com/ProvableHQ/leo/releases/tag/{crate-name}-v{version}
+```
+
+每个 release 都包含每个受支持目标平台对应的一个 ZIP 产物，命名为：
+
+```text
+{crate-name}-v{version}-{target}.zip
+```
+
+例如，`leo-lang-v4.0.1` 会生成：
+
+- `leo-lang-v4.0.1-x86_64-unknown-linux-gnu.zip`
+- `leo-lang-v4.0.1-x86_64-unknown-linux-musl.zip`
+- `leo-lang-v4.0.1-x86_64-apple-darwin.zip`
+- `leo-lang-v4.0.1-aarch64-apple-darwin.zip`
+- `leo-lang-v4.0.1-x86_64-pc-windows-msvc.zip`
+
+## 支持的目标平台
+
+| Target Triple               | 操作系统 | 架构          | 说明                               |
+| --------------------------- | -------- | ------------- | ---------------------------------- |
+| `x86_64-unknown-linux-gnu`  | Linux    | x86_64        | 动态链接 glibc                     |
+| `x86_64-unknown-linux-musl` | Linux    | x86_64        | 静态链接（Alpine、scratch 容器等） |
+| `x86_64-apple-darwin`       | macOS    | Intel         |                                    |
+| `aarch64-apple-darwin`      | macOS    | Apple Silicon |                                    |
+| `x86_64-pc-windows-msvc`    | Windows  | x86_64        |                                    |
+
+## 归档内容
+
+每个 ZIP 都包含该 crate 生成的所有二进制文件。当前的 crate 及其二进制文件如下：
+
+| Crate      | Binary    | 描述                       |
+| ---------- | --------- | -------------------------- |
+| `leo-lang` | `leo`     | Leo 编译器和 CLI           |
+| `leo-fmt`  | `leo-fmt` | Leo 源代码格式化工具       |
+| `leo-lsp`  | `leo-lsp` | 用于编辑器集成的语言服务器 |
+
+未来的插件 crate 将遵循相同模式。
+
+## 插件版本管理
+
+插件 crate（`leo-fmt`、`leo-lsp`）独立于 `leo-lang` 进行版本管理。每个 crate 都有自己的 git 标签和发布节奏，使工具更新可以在不需要发布新编译器版本的情况下交付。
+
+打包 Leo 时，请确保安装的插件版本与已安装的 `leo-lang` 版本兼容。
+
+> 注意：计划提供一个机器可读的 `releases.toml` 清单，用于跟踪 `leo-lang` 及其插件之间的版本兼容性。在该清单可用之前，请查阅 `Leo releases page`，以获取有关兼容版本组合的发布说明。
+
+## 打包指南
+
+下游包（Homebrew taps、AUR PKGBUILDs、发行版软件包等）应遵循以下指南：
+
+- **一起安装所有二进制文件。** 一个完整的 Leo 安装包括 `leo`、`leo-fmt` 和 `leo-lsp`。用户期望获得完整工具链。
+- **将所有二进制文件放在 `PATH` 中。** Leo 会通过在 `PATH` 中搜索符合 `leo-<name>` 约定的可执行文件来发现插件。
+- **保留 `leo-<name>` 命名约定。** 插件分发依赖于该约定，将 `leo-fmt` 重命名为其他名称会破坏 `leo fmt`。
+- **跨 crate 跟踪兼容版本。** 由于 crate 是独立发布的，软件包应固定到已知兼容的版本组合。
+
+## `cargo binstall` 支持
+
+每个二进制 crate 都在其 `Cargo.toml` 中包含 `[package.metadata.binstall]` 配置，指向 GitHub Release 产物 URL 模板。这意味着 `cargo binstall` 会自动解析正确的平台 ZIP：
+
+```bash
+cargo binstall leo-lang
+cargo binstall leo-fmt
+cargo binstall leo-lsp
+```
+
+如果用户平台没有可用的预构建二进制文件，`cargo binstall` 会回退到通过 `cargo install` 从源代码构建。
