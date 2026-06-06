@@ -2,6 +2,573 @@
 title: ABI Generation
 ---
 
-# ABI Generation
+# ABI 生成
 
-TODO: Add Leo ABI generation guide content.
+## 概述
+
+Leo 编译器会在生成已编译字节码的同时生成 **Application Binary Interface（ABI，应用程序二进制接口）**。ABI 是一个 JSON 文件，用于描述程序的公共接口，使下游工具能够在不需要访问原始源代码的情况下与已部署的程序进行交互。
+
+**使用场景：**
+
+- SDK 生成（Rust、TypeScript 等）
+- 类型安全的交易构造
+- 程序自省与文档生成
+- 工具集成（浏览器、钱包、IDE）
+
+## 构建输出
+
+当你运行 `leo build` 时，编译器会在生成已编译 `.aleo` 字节码的同时生成 ABI 文件：
+
+```text
+build/
+├── main.aleo          # 已编译的 Aleo 字节码
+├── abi.json           # 你的程序的 ABI
+└── imports/
+    ├── foo.aleo       # 导入程序的字节码
+    └── foo.abi.json   # 导入程序的 ABI
+```
+
+- **`build/abi.json`** - 主程序的 ABI
+- **`build/imports/{program}.abi.json`** - 每个导入依赖项的 ABI
+
+每次构建时都会自动生成 ABI，无需任何标志。
+
+## ABI 格式
+
+ABI 是一个 JSON 对象，具有以下顶层结构：
+
+```json
+{
+  "program": "token.aleo",
+  "structs": [...],
+  "records": [...],
+  "mappings": [...],
+  "storage_variables": [...],
+  "functions": [...]
+}
+```
+
+| 字段                | 描述                                           |
+| ------------------- | ---------------------------------------------- |
+| `program`           | 程序标识符，例如 `"token.aleo"`                |
+| `structs`           | 公共接口中使用的结构体类型定义                 |
+| `records`           | 记录类型定义                                   |
+| `mappings`          | 链上键值存储声明                               |
+| `storage_variables` | 存储变量声明                                   |
+| `functions`         | 公共入口点，即 entry `fn` 声明，不包括辅助函数 |
+
+> 信息：ABI 只包含公共接口引用到的类型。未在入口函数、映射或存储中使用的内部辅助结构体会被自动裁剪。
+
+## 类型参考
+
+### 原始类型
+
+原始类型会被直接表示：
+
+```json
+{ "Primitive": "Address" }
+{ "Primitive": "Boolean" }
+{ "Primitive": "Field" }
+{ "Primitive": "Group" }
+{ "Primitive": "Scalar" }
+{ "Primitive": "Signature" }
+```
+
+整数类型包含有符号性：
+
+```json
+{ "Primitive": { "Int": "I8" } }
+{ "Primitive": { "Int": "I16" } }
+{ "Primitive": { "Int": "I32" } }
+{ "Primitive": { "Int": "I64" } }
+{ "Primitive": { "Int": "I128" } }
+
+{ "Primitive": { "UInt": "U8" } }
+{ "Primitive": { "UInt": "U16" } }
+{ "Primitive": { "UInt": "U32" } }
+{ "Primitive": { "UInt": "U64" } }
+{ "Primitive": { "UInt": "U128" } }
+```
+
+### 数组
+
+定长数组包含元素类型和长度：
+
+```json
+{
+  "Array": {
+    "element": { "Primitive": "Field" },
+    "length": 4
+  }
+}
+```
+
+支持嵌套数组：
+
+```json
+{
+  "Array": {
+    "element": {
+      "Array": {
+        "element": { "Primitive": { "UInt": "U32" } },
+        "length": 2
+      }
+    },
+    "length": 3
+  }
+}
+```
+
+### 结构体
+
+结构体引用包含一个路径（支持模块），并且可以选择性地包含源程序：
+
+```json
+{
+  "Struct": {
+    "path": ["Point"],
+    "program": "geometry"
+  }
+}
+```
+
+对于模块中的结构体：
+
+```json
+{
+  "Struct": {
+    "path": ["utils", "Vector3"],
+    "program": "geometry"
+  }
+}
+```
+
+结构体定义包含所有字段：
+
+```json
+{
+  "path": ["Point"],
+  "fields": [
+    { "name": "x", "ty": { "Primitive": { "Int": "I32" } } },
+    { "name": "y", "ty": { "Primitive": { "Int": "I32" } } }
+  ]
+}
+```
+
+### 记录
+
+记录与结构体类似，但每个字段都包含一个可见性模式：
+
+```json
+{
+  "path": ["Token"],
+  "fields": [
+    { "name": "owner", "ty": { "Primitive": "Address" }, "mode": "None" },
+    {
+      "name": "amount",
+      "ty": { "Primitive": { "UInt": "U64" } },
+      "mode": "Public"
+    },
+    { "name": "data", "ty": { "Primitive": "Field" }, "mode": "Private" }
+  ]
+}
+```
+
+**模式值：**
+
+- `"None"` - 默认可见性（对于记录而言为 private）
+- `"Constant"` - 公开可见的常量
+- `"Private"` - 加密，仅所有者可见
+- `"Public"` - 链上可见
+
+### 可选类型
+
+可选类型（`T?`）表示为：
+
+```json
+{
+  "Optional": { "Primitive": "Field" }
+}
+```
+
+### 映射
+
+映射定义链上键值存储：
+
+```json
+{
+  "name": "balances",
+  "key": { "Primitive": "Address" },
+  "value": { "Primitive": { "UInt": "U64" } }
+}
+```
+
+### 存储变量
+
+存储变量可以是普通值或向量：
+
+```json
+{
+  "name": "counter",
+  "ty": {
+    "Plaintext": { "Primitive": { "UInt": "U32" } }
+  }
+}
+```
+
+```json
+{
+  "name": "history",
+  "ty": {
+    "Vector": {
+      "Plaintext": { "Primitive": { "UInt": "U64" } }
+    }
+  }
+}
+```
+
+### 入口函数
+
+入口函数定义公共入口点：
+
+```json
+{
+  "name": "transfer",
+  "has_final": false,
+  "inputs": [
+    {
+      "name": "receiver",
+      "ty": { "Plaintext": { "Primitive": "Address" } },
+      "mode": "Public"
+    },
+    {
+      "name": "amount",
+      "ty": { "Plaintext": { "Primitive": { "UInt": "U64" } } },
+      "mode": "Public"
+    }
+  ],
+  "outputs": [
+    {
+      "ty": { "Plaintext": { "Primitive": { "UInt": "U64" } } },
+      "mode": "Public"
+    }
+  ]
+}
+```
+
+**输入类型：**
+
+- `Plaintext` - 原始类型、数组、结构体或可选类型
+- `Record` - 记录输入（由入口函数消耗）
+
+**输出类型：**
+
+- `Plaintext` - 原始类型、数组、结构体或可选类型
+- `Record` - 记录输出（由入口函数创建）
+- `Final` - 带有 `final { }` 块的入口函数返回 `Final`
+
+带有 `final { }` 块的入口函数具有 `has_final: true`，并返回 `Final`：
+
+```json
+{
+  "name": "mint_public",
+  "has_final": true,
+  "inputs": [
+    {
+      "name": "receiver",
+      "ty": { "Plaintext": { "Primitive": "Address" } },
+      "mode": "Public"
+    },
+    {
+      "name": "amount",
+      "ty": { "Plaintext": { "Primitive": { "UInt": "U64" } } },
+      "mode": "Public"
+    }
+  ],
+  "outputs": [{ "ty": "Final", "mode": "None" }]
+}
+```
+
+## 类型降低规范
+
+ABI 使用 **Leo 类型**（高级表示）。当直接与 Aleo VM 交互时，下游工具必须应用转换，以理解链上表示。
+
+### Leo 到 Aleo 类型映射
+
+大多数 Leo 类型会直接映射到 Aleo 类型：
+
+| Leo 类型      | Aleo 类型     |
+| ------------- | ------------- |
+| `address`     | `address`     |
+| `bool`        | `boolean`     |
+| `field`       | `field`       |
+| `group`       | `group`       |
+| `scalar`      | `scalar`      |
+| `signature`   | `signature`   |
+| `i8` - `i128` | `i8` - `i128` |
+| `u8` - `u128` | `u8` - `u128` |
+| `[T; N]`      | `[T; N]`      |
+| `struct Foo`  | `Foo`         |
+| `record Bar`  | `Bar.record`  |
+| `Final`       | `future`      |
+
+### 可选类型降低
+
+Leo 的可选类型（`T?`）会被降低为一个包含两个字段的结构体：
+
+```text
+T?  -->  struct { is_some: bool, val: T }
+```
+
+**Leo 源代码：**
+
+```leo
+program example.aleo {
+    fn process(value: u32?) -> u32 {
+        return value.unwrap_or(0u32);
+    }
+}
+```
+
+**Aleo 表示：**
+
+```text
+struct "u32?" {
+    is_some as boolean;
+    val as u32;
+}
+
+function process:
+    input r0 as "u32?".private;
+    // ...
+```
+
+当 `is_some` 为 `false` 时，`val` 包含底层类型的零值。
+
+**嵌套可选类型示例：**
+
+```leo
+let arr: [u64?; 2] = [1u64, none];
+```
+
+降低为结构体数组：
+
+```text
+[
+    "u64?" { is_some: true, val: 1u64 },
+    "u64?" { is_some: false, val: 0u64 }
+]
+```
+
+### 存储向量降低
+
+Leo 的存储向量（`storage vec: Vector<T>`）会被降低为两个映射：
+
+```text
+storage vec: Vector<T>
+    -->
+mapping vec__: u32 => T        // 按位置索引的元素
+mapping vec__len__: bool => u32  // 长度存储在键 `false` 处
+```
+
+**Leo 源代码：**
+
+```leo
+program example.aleo {
+    storage history: Vector<u64>;
+
+    fn append(value: u64) -> Final {
+        return final {
+            history.push(value);
+        };
+    }
+}
+```
+
+**Aleo 表示：**
+
+```text
+mapping history__:
+    key as u32.public;
+    value as u64.public;
+
+mapping history__len__:
+    key as boolean.public;
+    value as u32.public;
+```
+
+要读取存储向量：
+
+1. 从 `{name}__len__` 中以键 `false` 获取长度
+2. 从 `{name}__` 中读取索引 `0` 到 `length - 1` 的元素
+
+### 元组展开
+
+元组会在 Aleo 字节码中展开为多个寄存器：
+
+```text
+(T1, T2, T3)  -->  r0: T1, r1: T2, r2: T3
+```
+
+**Leo 源代码：**
+
+```leo
+program example.aleo {
+    fn swap(a: u32, b: u32) -> (u32, u32) {
+        return (b, a);
+    }
+}
+```
+
+**Aleo 字节码：**
+
+```text
+function swap:
+    input r0 as u32.private;
+    input r1 as u32.private;
+    output r1 as u32.private;
+    output r0 as u32.private;
+```
+
+> 提示：构造交易时，元组输入/输出会按顺序变成独立参数。
+
+## 示例：Token 程序
+
+下面是一个完整示例，展示一个 Leo 程序及其生成的 ABI。
+
+**Leo 源代码（`token.leo`）：**
+
+```leo
+program token.aleo {
+    mapping account: address => u64;
+
+    record Token {
+        owner: address,
+        amount: u64,
+    }
+
+    fn mint_public(
+        public receiver: address,
+        public amount: u64
+    ) -> Final {
+        return final {
+            let current: u64 = Mapping::get_or_use(account, receiver, 0u64);
+            Mapping::set(account, receiver, current + amount);
+        };
+    }
+
+    fn mint_private(receiver: address, amount: u64) -> Token {
+        return Token { owner: receiver, amount };
+    }
+
+    fn transfer_private(token: Token, receiver: address) -> Token {
+        return Token { owner: receiver, amount: token.amount };
+    }
+}
+```
+
+**生成的 ABI（`build/abi.json`）：**
+
+```json
+{
+  "program": "token.aleo",
+  "structs": [],
+  "records": [
+    {
+      "path": ["Token"],
+      "fields": [
+        { "name": "owner", "ty": { "Primitive": "Address" }, "mode": "None" },
+        {
+          "name": "amount",
+          "ty": { "Primitive": { "UInt": "U64" } },
+          "mode": "None"
+        }
+      ]
+    }
+  ],
+  "mappings": [
+    {
+      "name": "account",
+      "key": { "Primitive": "Address" },
+      "value": { "Primitive": { "UInt": "U64" } }
+    }
+  ],
+  "storage_variables": [],
+  "functions": [
+    {
+      "name": "mint_public",
+      "has_final": true,
+      "inputs": [
+        {
+          "name": "receiver",
+          "ty": { "Plaintext": { "Primitive": "Address" } },
+          "mode": "Public"
+        },
+        {
+          "name": "amount",
+          "ty": { "Plaintext": { "Primitive": { "UInt": "U64" } } },
+          "mode": "Public"
+        }
+      ],
+      "outputs": [{ "ty": "Final", "mode": "None" }]
+    },
+    {
+      "name": "mint_private",
+      "has_final": false,
+      "inputs": [
+        {
+          "name": "receiver",
+          "ty": { "Plaintext": { "Primitive": "Address" } },
+          "mode": "None"
+        },
+        {
+          "name": "amount",
+          "ty": { "Plaintext": { "Primitive": { "UInt": "U64" } } },
+          "mode": "None"
+        }
+      ],
+      "outputs": [
+        {
+          "ty": { "Record": { "path": ["Token"], "program": "token" } },
+          "mode": "None"
+        }
+      ]
+    },
+    {
+      "name": "transfer_private",
+      "has_final": false,
+      "inputs": [
+        {
+          "name": "token",
+          "ty": { "Record": { "path": ["Token"], "program": "token" } },
+          "mode": "None"
+        },
+        {
+          "name": "receiver",
+          "ty": { "Plaintext": { "Primitive": "Address" } },
+          "mode": "None"
+        }
+      ],
+      "outputs": [
+        {
+          "ty": { "Record": { "path": ["Token"], "program": "token" } },
+          "mode": "None"
+        }
+      ]
+    }
+  ]
+}
+```
+
+**关键观察：**
+
+- 只包含 `Token` 记录（没有内部辅助类型）
+- `mint_public` 具有 `final { }` 块（`has_final: true`），并在 ABI 中返回 `Final`
+- `mint_private` 和 `transfer_private` 返回 `Record` 输出
+- `transfer_private` 接收一个 `Record` 输入（消耗该 token）
+
+## 另请参阅
+
+- Leo Build Command - 用于构建程序的 CLI 参考
+- Data Types - Leo 类型系统参考
+- The Finalization Model - 理解证明执行上下文与 finalization 执行上下文
