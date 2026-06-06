@@ -2,6 +2,187 @@
 title: Dependency Management
 ---
 
-# Dependency Management
+# 依赖管理
 
-TODO: Add Leo dependency management guide content.
+Leo 程序可以从其他程序和库中导入功能。任何被导入的程序或库都称为依赖。依赖有两种类型：
+
+- **网络依赖**：已经部署在 Aleo 网络上的程序，以预编译字节码的形式获取。
+- **本地依赖**：位于你的文件系统中的代码；可以是从源码编译的 Leo 代码、Aleo Instructions 代码，或者 Leo 库。
+
+### 程序与库
+
+常规 Leo **程序** 具有链上身份（`program foo.aleo { }`），可以持有映射和记录，并部署到 Aleo 网络。Leo **库** 是一种仅包含源码的包，其中包含结构体、常量和辅助函数，没有链上足迹——所有库代码都会在编译时内联到使用它的程序中。库只能作为本地依赖；它们永远不会被部署。
+
+有关如何编写和使用库的详细信息，请参阅 Leo Libraries。
+
+## 添加依赖
+
+### 网络依赖
+
+要将已经部署在 Aleo 网络上的程序添加为依赖：
+
+```bash
+leo add credits.aleo --network
+```
+
+或者
+
+```bash
+leo add credits --network
+```
+
+对于 mainnet 依赖：
+
+```bash
+leo add credits --network mainnet
+```
+
+这会向你的 `program.json` 添加一个条目：
+
+```json
+{
+  "program": "your_program.aleo",
+  "version": "0.0.0",
+  "description": "",
+  "license": "MIT",
+  "dependencies": [
+    {
+      "name": "credits.aleo",
+      "location": "network",
+      "network": "testnet",
+      "path": null
+    }
+  ]
+}
+```
+
+### 本地依赖
+
+要将本地文件系统中的 Leo 包或 Aleo Instructions 文件添加为依赖：
+
+```bash
+leo add my_library.aleo --local <PATH_TO_LIBRARY>
+```
+
+这会在 `program.json` 中记录该路径：
+
+```json
+{
+  "dependencies": [
+    {
+      "name": "my_library.aleo",
+      "location": "local",
+      "network": null,
+      "path": "./path/to/my_library"
+    }
+  ]
+}
+```
+
+每次构建时，本地依赖都会从源码编译。它们永远不需要网络访问。
+
+**Leo 库** 是一种特殊的本地依赖。库项目（使用 `leo new --lib` 创建）只包含结构体、常量和辅助函数——没有 program 块、没有映射、没有记录。由于库没有链上身份，它们只能作为本地依赖，并且永远不会被部署。所有库代码都会在编译时内联到使用它的程序中。更多信息请参阅 Leo Libraries。
+
+## 移除依赖
+
+```bash
+leo remove credits.aleo
+```
+
+## 使用依赖
+
+在你的 `main.leo` 文件中，在程序声明之前导入依赖：
+
+```leo
+import credits.aleo;
+import my_library.aleo;
+
+program my_program.aleo {
+    // ...
+}
+```
+
+## 依赖解析流程
+
+当你运行 Leo 命令时，依赖会按如下方式解析：
+
+1. **读取 `program.json`** 以查找声明的依赖
+2. **对于每个依赖：**
+   - **本地**：从指定路径读取 Leo 源码并编译，或者使用 Aleo Instructions 文件
+   - **网络**：从 Aleo 网络（或缓存）获取字节码
+3. **解析传递依赖**——如果你的依赖导入了其他程序，这些程序也会被获取
+4. **对所有程序进行拓扑排序**，以确保依赖先于依赖它们的程序被处理
+
+### 缓存行为
+
+网络依赖会被缓存在本地的 `~/.aleo/registry/{network}/{program_name}/{edition}/`，以避免重复下载。
+
+不同命令处理缓存的方式不同：
+
+| 命令             | 缓存行为     |
+| ---------------- | ------------ |
+| `leo build`      | 使用缓存     |
+| `leo run`        | 使用缓存     |
+| `leo execute`    | 始终重新获取 |
+| `leo deploy`     | 始终重新获取 |
+| `leo upgrade`    | 始终重新获取 |
+| `leo synthesize` | 始终重新获取 |
+
+生成证明的命令（`execute`、`deploy`、`upgrade`、`synthesize`）始终会重新获取字节码，因为证明包含对依赖精确字节码的承诺。如果某个依赖已在链上升级，使用过期的缓存字节码会生成无效证明。
+
+要在 `build` 或 `run` 期间强制重新获取：
+
+```bash
+leo build --no-cache
+```
+
+## 程序版本
+
+**版本（edition）** 是 Aleo 网络上已部署程序的版本号：
+
+- **Edition 0：** 初始部署
+- **Edition 1：** 第一次升级
+- **Edition 2：** 第二次升级
+- ……依此类推
+
+默认情况下，Leo 会获取网络依赖的**最新**版本。要固定到特定版本：
+
+```bash
+leo add some_program.aleo --edition 3
+```
+
+这会在清单中记录固定的版本：
+
+```json
+{
+  "name": "some_program.aleo",
+  "location": "network",
+  "network": "testnet",
+  "path": null,
+  "edition": 3
+}
+```
+
+**何时固定版本：**
+
+- 当你需要可复现构建时
+- 当依赖升级会破坏你的程序时
+- 当你想避免意外的行为变化时
+
+**注意：** 本地依赖没有版本——它们始终从你当前的源代码编译。
+
+## 部署带有依赖的程序
+
+### 递归部署
+
+当部署带有本地依赖的程序时，使用：
+
+```bash
+leo deploy --recursive
+```
+
+这会按拓扑顺序部署所有本地依赖，然后部署你的主程序。已经部署在链上的依赖会被跳过。
+
+### 部署时的网络依赖
+
+当你部署时，Leo 会重新获取所有网络依赖的字节码，以确保你的部署交易引用当前链上版本。如果某个网络依赖处于 edition 0，并且缺少构造器（自 V8 共识升级以来这是必需的），Leo 会报错，并给出清晰的信息，说明该依赖需要先在链上升级。
