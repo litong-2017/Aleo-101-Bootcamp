@@ -2,6 +2,167 @@
 title: Testing
 ---
 
-# Testing
+# 测试，测试，123
 
-TODO: Add Leo testing guide content.
+应用一旦部署，就会永久存在于账本上。因此，考虑各种边界情况并严格测试代码非常重要。你可以使用多种工具和技术来完成测试。
+
+- **单元测试与集成测试**：通过测试用例验证 Leo 程序逻辑。
+- **运行 Devnet**：在本地 devnet 上部署并执行程序。
+- **在 Testnet 上部署/执行**：在 Aleo Testnet 上部署并执行程序。
+
+## 单元测试与集成测试
+
+Leo 测试框架允许开发者通过编写单元测试和集成测试来验证 Leo 程序逻辑。测试使用 Leo 编写，并放置在主 Leo 项目目录下的 `tests/` 子目录中。
+
+```bash
+example_program
+├── build
+│   ├── imports
+│   │   └── test_example_program.aleo
+│   ├── main.aleo
+│   └── program.json
+├── outputs
+├── src
+│   └── main.leo
+├── tests
+│   └── test_example_program.leo
+└── program.json
+```
+
+测试文件本身也是一个 Leo 程序，它会导入 `main.leo` 中的程序。所有测试函数都需要在函数声明上方添加 `@test` 注解。
+
+本教程使用的示例程序可在示例仓库中找到。
+
+> 信息：开发者可以向 `tests` 目录中添加多个 `leo` 文件，但必须确保测试文件名与该测试文件中的程序名一致。例如，如果测试文件名为 `test_example_program.leo`，则该文件中的程序名必须为 `test_example_program.aleo`。
+
+### 测试入口函数
+
+`example_program.leo` 程序包含一个入口函数，该函数返回两个 `u32` 输入的和。
+
+```leo
+fn simple_addition(public a: u32, b: u32) -> u32 {
+    let c: u32 = a + b;
+    return c;
+}
+```
+
+`test_example_program.leo` 中包含两个测试，用于确保该函数逻辑能够返回正确结果，并在输出结果与输入值之和不一致时失败。
+
+```leo
+@test
+fn test_simple_addition() {
+    let result: u32 = example_program.aleo::simple_addition(2u32, 3u32);
+    assert_eq(result, 5u32);
+}
+```
+
+对于预期会失败的测试，应在 `@test` 注解之后添加 `@should_fail` 注解。
+
+```leo
+@test
+@should_fail
+fn test_simple_addition_fail() {
+    let result: u32 = example_program.aleo::simple_addition(2u32, 3u32);
+    assert_eq(result, 3u32);
+}
+```
+
+### 测试 Leo 类型
+
+开发者可以测试 record 和 struct 字段是否与预期值一致。在 `example_program.leo` 中，入口函数会铸造一个 record，如下所示：
+
+```leo
+record Example {
+    owner: address,
+    x: field,
+}
+
+fn mint_record(x: field) -> Example {
+    return Example {
+        owner: self.signer,
+        x,
+    };
+}
+```
+
+`test_example_program.leo` 中对应的测试会检查 Record 字段是否包含正确的值：
+
+```leo
+@test
+fn test_record_maker() {
+    let r: example_program.aleo::Example = example_program.aleo::mint_record(0field);
+    assert_eq(r.x, 0field);
+}
+```
+
+> 信息：每个测试文件都必须至少包含一个 `@test fn` 函数。
+
+### 建模链上状态
+
+Leo 测试框架通过真实 VM 执行测试，因此 `@test fn` 函数完全支持链上状态，包括 mappings 和 storage，不需要使用特殊语法。调用返回 `Final` 的入口函数时，可以像调用其他函数一样调用；finalization 会作为测试运行的一部分被执行。
+
+对于面向真实网络或本地 devnet 的端到端测试和集成测试，可以直接使用 SDK，或将 `snarkVM` 作为库使用。
+
+### 测试库包
+
+`leo test` 可以直接作用于库包，不需要额外的包装程序。将测试文件放在库项目的 `tests/` 目录中，并使用 `library_name::function` 路径语法调用库函数：
+
+```leo
+// tests/test_my_lib.leo
+
+program test_my_lib.aleo {
+    @test
+    fn test_double() {
+        assert_eq(my_lib::double(5u32), 10u32);
+    }
+
+    @test
+    fn test_triple() {
+        assert_eq(my_lib::math::triple(4u32), 12u32);
+    }
+
+    @noupgrade
+    constructor() {}
+}
+```
+
+从库的根目录运行 `leo test`：
+
+```bash
+cd my_lib
+leo test
+```
+
+子模块函数可以通过其限定路径访问，例如 `my_lib::math::triple(4u32)`。
+
+### 运行测试
+
+调用 `leo test` 命令会运行所有已编译和解释执行的测试。开发者也可以通过提供测试函数名，或测试函数名中包含的字符串，来选择运行单个测试。例如，要运行 `test_final` 测试，可以使用以下命令：
+
+```bash
+leo test test_final
+```
+
+以下任一命令都会运行两个 addition 函数测试：
+
+```bash
+leo test simple
+```
+
+或：
+
+```bash
+leo test addition
+```
+
+更多内容可查看 `leo test` CLI 文档。
+
+## 运行 Devnet
+
+本地 devnet 可能较为重量级，但它是测试 Aleo 应用的一种可靠方式。
+
+更多信息可参考 Devnet 指南。
+
+## 在 Testnet 上部署/执行
+
+要在 Testnet 上部署和执行程序，需要将 endpoint 设置回一个面向公众的可用选项。此外，还需要获取 Testnet credits，可访问 Aleo faucet 申请。
