@@ -1,3 +1,5 @@
 # Screenshots
 
-Add deployment and chain interaction screenshots here after the testnet transactions are broadcast.
+- `program.png`: deployed program page.
+- `deploy.png`: deployment transaction page.
+- `mint_score_card.png`: `mint_score_card` execution transaction page.

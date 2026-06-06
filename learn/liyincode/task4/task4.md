@@ -36,6 +36,12 @@ Program ID:
 private_score_gate_liyincode.aleo
 ```
 
+测试网浏览器：
+
+```text
+https://testnet.explorer.provable.com/program/private_score_gate_liyincode.aleo
+```
+
 部署命令：
 
 ```bash
@@ -65,26 +71,38 @@ PRIVATE_KEY="$PRIVATE_KEY" leo execute \
 Total Fee: 4.669221 credits
 ```
 
+部署交易：
+
+```text
+at1f90ap37gkjfup673wcpu77hsupa6dkd79redytj998k2dk57ucgs50um5x
+```
+
 ## 测试网合约地址
 
 ```text
-Pending: deployment requires a funded Aleo testnet account.
+private_score_gate_liyincode.aleo
 ```
 
-## 链上交互截图
+## 链上交互
+
+本次执行 `mint_score_card 88u64 60u64`，生成一张私密分数凭证。链上只能看到私密输入的 ciphertext 和公开门槛 `60u64`，不会直接暴露 `score=88`。
+
+交易 ID：
 
 ```text
-Pending: add deployment and interaction screenshots after successful broadcast.
+at1smcun4d5m2nx845wemfmrgrvtrvskc4ppx825f3jwxhtp7m6mqqs3fmnkq
 ```
 
-## 当前状态
-
-本地已完成 Leo 4.2.0 编译验证，并已执行一次测试网部署流程直到广播前余额检查。临时测试账户没有 public balance，官方 faucet 在当前环境返回 Cloudflare block，因此无法非交互领取测试币。
+交易浏览器：
 
 ```text
-Error [ECLI0377041]: invalid public balance for account `aleo1sqdgvwa65nkykpdt3saczsdhwg7cw524q2fus39lxmmk7ll9sgpq6qyft4`
-     |
-     = Make sure the account has enough public balance to cover the deployment fee.
+https://testnet.explorer.provable.com/transaction/at1smcun4d5m2nx845wemfmrgrvtrvskc4ppx825f3jwxhtp7m6mqqs3fmnkq
 ```
 
-私钥和助记信息不会提交到仓库。拿到测试币后，重新运行上面的部署和链上交互命令，再补充合约地址、交易 ID 和截图。
+## 截图
+
+```text
+screenshots/program.png
+screenshots/deploy.png
+screenshots/mint_score_card.png
+```
