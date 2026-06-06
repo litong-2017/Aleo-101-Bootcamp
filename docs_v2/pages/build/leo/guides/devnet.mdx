@@ -2,6 +2,304 @@
 title: Devnet
 ---
 
-# Devnet
+# 运行 Devnet
 
-TODO: Add Leo devnet guide content.
+本地 devnet 是一种相对“重量级”，但较为可靠的方式，可用于在 Aleo 上测试你的应用。
+
+---
+
+## 设置
+
+Leo CLI 提供了一个便捷命令，可以帮助你启动本地 devnet：
+
+```bash
+leo devnet --snarkos <SNARKOS> --snarkos-features test_network
+```
+
+其中，`<SNARKOS>` 是已经安装好的 **snarkOS** 二进制文件路径。`snarkOS` 是 Aleo 网络背后的去中心化操作系统。
+
+如果你还没有安装 `snarkOS`，可以传入 `--install` 标志。CLI 会自动下载、编译，并将二进制文件保存到 `<SNARKOS>` 指定的路径。
+
+```bash
+leo devnet --snarkos <SNARKOS> --snarkos-features test_network --install
+```
+
+> 信息
+> Windows 用户需要执行一些额外步骤，才能让 snarkOS 正常安装：
+>
+> 1. 初次安装 Rust 时，系统通常会自动提示你安装带有 MSVC 2022 C++ build tools 的 Visual Studio。
+> 2. 打开 Visual Studio Installer，安装 **C++ Clang Compiler for Windows**，并根据你的操作系统安装 Windows 10 SDK 或 Windows 11 SDK。请记下安装路径，通常格式如下：
+>
+>    ```text
+>    {PATH}\Microsoft Visual Studio\2022\BuildTools
+>    ```
+>
+> 3. 在上述 BuildTools 目录中，找到 `libclang.dll` 文件的位置。
+>    对于 `x86` 系统，该文件通常位于：
+>
+>    ```text
+>    VC\Tools\Llvm\bin
+>    ```
+>
+>    对于 `x64` 系统，该文件通常位于：
+>
+>    ```text
+>    VC\Tools\Llvm\x64\bin
+>    ```
+>
+> 4. 获取 `libclang.dll` 的完整路径后，在系统中创建 `LIBCLANG_PATH` 环境变量，并将其设置为该路径。
+> 5. 完成后，snarkOS 应该可以正常编译和运行。
+
+---
+
+`tmux` 命令可以让你在本地 devnet 的多个节点之间切换。启动 devnet 时，可以通过传入 `--tmux` 标志启用该功能：
+
+```bash
+leo devnet --snarkos <SNARKOS> --snarkos-features test_network --tmux
+```
+
+> 信息
+> 该功能仅适用于 Unix 系统。
+
+你需要先安装 `tmux` 包。
+
+### macOS
+
+在 macOS 上，可以使用 Homebrew 安装 `tmux`。如果还没有安装 Homebrew，可以先到 Homebrew 官网查看安装说明。安装完成后，运行：
+
+```bash
+brew install tmux
+```
+
+### Ubuntu
+
+在 Ubuntu 和其他基于 Debian 的系统上，可以使用 `apt` 包管理器安装：
+
+```bash
+sudo apt update
+sudo apt install tmux
+```
+
+---
+
+下面是一些常用的 `tmux` 默认命令：
+
+```bash
+# 切换到本地 devnet 中的下一个节点
+Ctrl+b n
+
+# 切换到本地 devnet 中的上一个节点
+Ctrl+b p
+
+# 方便滚动查看内容，按 q 退出
+Ctrl+b q
+
+# 选择本地 devnet 中的某个节点
+Ctrl+b w
+
+# 手动选择本地 devnet 中的某个节点
+Ctrl+b :select-window -t {NODE_ID}
+
+# 停止本地 devnet
+Ctrl+b :kill-session
+```
+
+完整的 `leo devnet` CLI 文档可参考对应的 `leo devnet` 页面。
+
+---
+
+## 使用方式
+
+当你启动 devnet 时，CLI 实际上会通过 `snarkOS` 二进制文件，从创世区块开始启动一个新的区块链实例。
+
+这意味着：
+
+- 链会从区块 `0` 开始；
+- 初始共识版本为 `1`；
+- 初始部署的程序只有：
+
+```text
+credits.aleo
+```
+
+随着区块不断产生，链的高度会逐步增加。在不同的区块高度上，新的共识版本会被激活。这些共识版本会解锁 Aleo 网络在发展过程中实现的不同功能。
+
+默认情况下，devnet 会采用 Testnet 中预定义的共识高度：
+
+```rust
+(ConsensusVersion::V1, 0),
+(ConsensusVersion::V2, 2_950_000),
+(ConsensusVersion::V3, 4_800_000),
+(ConsensusVersion::V4, 6_625_000),
+(ConsensusVersion::V5, 6_765_000),
+(ConsensusVersion::V6, 7_600_000),
+(ConsensusVersion::V7, 8_365_000),
+(ConsensusVersion::V8, 9_173_000),
+(ConsensusVersion::V9, 9_800_000),
+(ConsensusVersion::V10, 10_525_000),
+(ConsensusVersion::V11, 11_952_000),
+```
+
+显然，如果你想测试较新的功能，例如程序可升级性，不可能真的等待一千万个区块。因此，`leo devnet` 提供了 `--consensus-heights` 标志，用于手动设置共识升级高度：
+
+```bash
+leo devnet --snarkos <SNARKOS> --snarkos-features test_network --consensus-heights 0,1,2,3,4,5,6,7,8,9,10
+```
+
+需要注意的是，如果你想访问最新功能，传给该标志的逗号分隔参数数量，必须与最新的共识版本数量完全一致。
+
+每次停止并重启链时，之前的状态和历史记录都会被保存。如果你想清除之前的历史记录，可以传入 `--clear-storage` 标志：
+
+```bash
+leo devnet --snarkos <SNARKOS> --snarkos-features test_network --clear-storage
+```
+
+清除账本历史在你想使用相同程序名称重新部署程序时很有用。不过，这会删除所有交易历史，并从创世区块开始启动一个新的 Aleo 区块链实例。
+
+---
+
+## 部署与执行
+
+在本地 devnet 上部署或执行程序时，需要确保 endpoint 设置为：
+
+```text
+http://localhost:3030
+```
+
+而不是任何外部 API endpoint。
+
+你可以通过以下几种方式设置 endpoint：
+
+1. 手动设置 `ENDPOINT` 环境变量；
+2. 在 CLI 中传入：
+
+   ```bash
+   --endpoint http://localhost:3030
+   ```
+
+3. 在 Leo 项目根目录的 `.env` 文件中设置：
+
+   ```env
+   ENDPOINT=http://localhost:3030
+   ```
+
+在 devnet 上执行交易还需要 credits 作为交易费用。`snarkOS` 会自动初始化四个带有 Aleo credits 的开发账户，可用于测试。
+
+```bash
+# Account 0
+APrivateKey1zkp8CZNn3yeCseEtxuVPbDCwSyhGW6yZKUYKfgXmcpoGPWH
+AViewKey1mSnpFFC8Mj4fXbK5YiWgZ3mjiV8CxA79bYNa8ymUpTrw
+aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px
+
+# Account 1
+APrivateKey1zkp2RWGDcde3efb89rjhME1VYA8QMxcxep5DShNBR6n8Yjh
+AViewKey1pTzjTxeAYuDpACpz2k72xQoVXvfY4bJHrjeAQp6Ywe5g
+aleo1s3ws5tra87fjycnjrwsjcrnw2qxr8jfqqdugnf0xzqqw29q9m5pqem2u4t
+
+# Account 2
+APrivateKey1zkp2GUmKbVsuc1NSj28pa1WTQuZaK5f1DQJAT6vPcHyWokG
+AViewKey1u2X98p6HDbsv36ZQRL3RgxgiqYFr4dFzciMiZCB3MY7A
+aleo1ashyu96tjwe63u0gtnnv8z5lhapdu4l5pjsl2kha7fv7hvz2eqxs5dz0rg
+
+# Account 3
+APrivateKey1zkpBjpEgLo4arVUkQmcLdKQMiAKGaHAQVVwmF8HQby8vdYs
+AViewKey1iKKSsdnatHcm27goNC7SJxhqQrma1zkq91dfwBdxiADq
+aleo12ux3gdauck0v60westgcpqj7v8rrcr3v346e4jtq04q7kkt22czsh808v2
+```
+
+你可以通过以下方式指定要使用的私钥：
+
+1. 手动设置 `PRIVATE_KEY` 环境变量；
+2. 在 CLI 中传入 `--private-key` 参数；
+3. 在 Leo 项目根目录的 `.env` 文件中设置：
+
+```env
+PRIVATE_KEY=<YOUR_PRIVATE_KEY>
+```
+
+当私钥和 endpoint 都设置正确后，在本地 devnet 上部署和执行程序的方式，与在 Testnet 或 Mainnet 上基本相同。
+
+---
+
+## 查询交易状态
+
+你可以使用以下 API endpoint 查询交易：
+
+```bash
+GET http://localhost:3030/testnet/transaction/{TRANSACTION_ID}
+```
+
+也可以通过 CLI 使用 `leo query` 查询：
+
+```bash
+leo query transaction {TRANSACTION_ID}
+```
+
+交易 API endpoint 对判断交易是否成功非常有用。
+
+由于成功交易和失败交易都会执行一笔 fee transaction，如果你只看到 fee transaction，而没有看到主交易，那么通常可以判断该交易失败了。
+
+需要注意的是，在 Testnet 和 Mainnet 上，即使交易失败，也仍然需要支付费用，因为网络已经执行了相关计算。
+
+完整 API endpoint 列表可参考 Provable Explorer API 文档。
+
+---
+
+## Record 扫描
+
+你可以使用已安装的 `snarkOS` 二进制文件提供的 CLI 查看自己的 records。
+
+首先，进入你安装 `snarkOS` 二进制文件的目录。然后使用以下命令格式：
+
+```bash
+./snarkos developer scan --endpoint http://localhost:3030 --private-key {YOUR_PRIVATE_KEY} --start <block_number> --network 1
+```
+
+将 `block_number` 设置为 `0` 会列出从创世区块开始创建的所有 records，包括你的测试 credits records。
+
+示例输出：
+
+```bash
+⚠️  Attention - Scanning the entire chain. This may take a while...
+
+Scanning 3 blocks for records (100% complete)...
+
+[
+  "{  owner: aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px.private,  microcredits: 23437500000000u64.private,  _nonce: 3666670146276262240199958044811329632452609778779651964870759629195088099828group.public}",
+  "{  owner: aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px.private,  microcredits: 23437500000000u64.private,  _nonce: 4536868268814456227312360347031739423312689137706933033938812386306238998060group.public}",
+  "{  owner: aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px.private,  microcredits: 23437500000000u64.private,  _nonce: 205967862164714901379497326815256981526025583494109091059194305832749867953group.public}",
+  "{  owner: aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px.private,  microcredits: 23437500000000u64.private,  _nonce: 4424806931746512507605174575961455750579179367541686805196254590136284583805group.public}"
+]
+```
+
+如果将 `block_number` 设置为 `1` 或更高，则会在扫描时排除上述创世区块中的 credit records。
+
+---
+
+## 简要说明
+
+本地 devnet 可以理解为一个完整的本地 Aleo 测试链。它会从创世区块启动，生成区块、维护账本、支持部署和执行程序，并可用于模拟接近真实网络的开发环境。
+
+最常用的启动命令是：
+
+```bash
+leo devnet --snarkos <SNARKOS> --snarkos-features test_network
+```
+
+如果需要自动安装 snarkOS：
+
+```bash
+leo devnet --snarkos <SNARKOS> --snarkos-features test_network --install
+```
+
+如果希望每次重新开始一个干净链：
+
+```bash
+leo devnet --snarkos <SNARKOS> --snarkos-features test_network --clear-storage
+```
+
+部署和执行程序时，请确保 endpoint 指向本地 devnet：
+
+```text
+http://localhost:3030
+```
