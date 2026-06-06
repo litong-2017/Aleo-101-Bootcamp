@@ -2,6 +2,79 @@
 title: Plugins
 ---
 
-# Plugins
+# `leo plugins`
 
-TODO: Add Leo CLI plugins content.
+列出当前已安装并且对 Leo 可见的所有 CLI 插件。
+
+```bash
+leo plugins
+```
+
+控制台输出：
+
+```bash
+Installed plugins:
+
+  fmt    /usr/local/bin/leo-fmt
+```
+
+如果在你的 `PATH` 中没有找到插件：
+
+控制台输出：
+
+```bash
+No leo plugins detected on PATH.
+```
+
+## 插件系统
+
+Leo 支持通过外部插件二进制文件扩展 CLI。插件遵循 `leo-<name>` 的命名约定，并会在你的系统 `PATH` 中被自动发现。
+
+当你运行的命令与内置命令不匹配时，Leo 会在你的 `PATH` 中查找一个 `leo-<name>` 二进制文件，并将命令委托给它。参数会原样转发。例如：
+
+```bash
+leo fmt --check
+```
+
+等同于：
+
+```bash
+leo-fmt --check
+```
+
+如果没有找到插件二进制文件，Leo 会打印错误：
+
+```text
+'leo-fmt' not found. Install the plugin and ensure it is available on your PATH.
+```
+
+### 可用插件
+
+| 插件      | Crate     | 描述                       |
+| --------- | --------- | -------------------------- |
+| `leo-fmt` | `leo-fmt` | 格式化 Leo 源文件          |
+| `leo-lsp` | `leo-lsp` | 用于编辑器集成的语言服务器 |
+
+### 安装插件
+
+插件可以通过 `cargo install` 或 `cargo binstall` 安装：
+
+```bash
+cargo install leo-fmt leo-lsp
+# or, to download pre-built binaries:
+cargo binstall leo-fmt leo-lsp
+```
+
+预构建二进制文件也可以从 Leo releases 获取。每个插件 crate 都会在其自己的 git tag 下独立发布，例如 `leo-fmt-v1.0.0`。
+
+关于发布产物、目标平台和打包指南的详细信息，请参见 Binary Distribution Reference。
+
+运行 `leo update` 也会尽力尝试更新像 `leo-fmt` 这样的捆绑插件。
+
+### 编写自定义插件
+
+任何在你的 `PATH` 中命名为 `leo-<name>` 的可执行文件都会被发现为插件。自定义插件可以用任何语言编写，唯一要求是：
+
+1. 二进制文件命名为 `leo-<name>`，例如 `leo-mytools`
+2. 二进制文件位于你的 `PATH` 中的某个目录
+3. 二进制文件是可执行的
