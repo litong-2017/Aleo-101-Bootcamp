@@ -22,14 +22,16 @@ program credential.aleo {
         public score: u64,
     ) -> (Credential, Final) {
         let new_credential: Credential = Credential {
-            owner: self.caller,
+            owner: self.signer,
             credential_id,
             score,
         };
 
+        let caller = self.signer;
+
         return (new_credential, final {
-            let current: u64 = Mapping::get_or_use(credential_counts, self.caller, 0u64);
-            Mapping::set(credential_counts, self.caller, current + 1u64);
+            let current: u64 = Mapping::get_or_use(credential_counts, caller, 0u64);
+            Mapping::set(credential_counts, caller, current + 1u64);
         });
     }
 
@@ -49,22 +51,17 @@ program credential.aleo {
         };
 
         // 构造发送者的分享记录
-        let record: Credential = Credential {
+        let sender_record: Credential = Credential {
             owner: credential.owner,
             credential_id: credential.credential_id,
             score: 0u64,
         };
 
-        return (shared, record, final {
+        return (shared, sender_record, final {
             // 更新接收者计数
             let receiver_count: u64 = Mapping::get_or_use(credential_counts, to, 0u64);
             Mapping::set(credential_counts, to, receiver_count + 1u64);
         });
-    }
-
-    // 查询地址的凭证计数（公共信息）
-    fn get_count(public owner: address) -> u64 {
-        return Mapping::get(credential_counts, owner);
     }
 
     // 防止合约升级
