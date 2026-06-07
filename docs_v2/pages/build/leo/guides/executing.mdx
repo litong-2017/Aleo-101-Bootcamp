@@ -4,7 +4,7 @@ title: Executing
 
 # 执行你的程序
 
-`leo execute` 命令会执行 Leo 程序，并输出一个交易对象：
+`leo execute` 命令会执行 Leo 程序中的函数，并输出一个交易对象：
 
 ```bash
 leo execute <FUNCTION_NAME> <INPUT_1> <INPUT_2> ...
@@ -72,4 +72,4 @@ leo execute <PROGRAM_NAME>.aleo::<FUNCTION_NAME> <INPUT_1> <INPUT_2> ...
   ...
 ```
 
-在底层，`leo execute` 会生成一个 JSON 对象。这个对象是一个可以广播到 Aleo 网络的 [`Transaction`](https://developer.aleo.org/concepts/fundamentals/transactions)。如果你想查看该 JSON，可以在运行 `leo execute` 时传入 `--print` flag。
+在底层，`leo execute` 会生成一个 JSON 对象。这个对象是一个可以广播到 Aleo 网络的 [`Transaction`](https://developer.aleo.org/concepts/fundamentals/transactions)。如果你想查看该 JSON，可以在运行 `leo execute` 时传入 `--print` 标志。
