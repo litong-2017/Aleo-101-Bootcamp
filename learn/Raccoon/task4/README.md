@@ -12,4 +12,3 @@ task3/
 │   └── index.html              # 交互式投票界面
 └── README.md                    # 本文档
 ```
-![picture](/learn/Raccoon/task3/picture.png)
