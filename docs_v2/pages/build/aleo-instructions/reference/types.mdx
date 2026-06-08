@@ -53,7 +53,7 @@ r0[r1] into r2;
 r0[0u32][1u32] into r1;
 ```
 
-数组最大大小为 2,048 个元素（在 Aleo Stack v4.6.0 中从 512 提升到 2,048，以支持 `snark.verify` 使用的 verifying keys 和 proofs）。
+数组最大大小为 2,048 个元素（在 Aleo Stack v4.6.0 中从 512 提升到 2,048，以支持 `snark.verify` 使用的验证密钥和证明）。
 
 ### Records（记录）
 
@@ -95,7 +95,7 @@ mapping account:
 | `_nonce` | `group` | record nonce |
 | `_version` | `u8` | record 版本 |
 
-`record.dynamic` 不能直接实例化。它必须作为输入接收、从 `call.dynamic` 返回，或通过 cast 静态 record 创建：
+`record.dynamic` 不能直接实例化。它必须作为输入接收、从 `call.dynamic` 返回，或通过对静态 record 进行 cast 创建：
 
 ```aleo
 cast r0 into r1 as record.dynamic;
@@ -103,7 +103,7 @@ cast r0 into r1 as record.dynamic;
 
 `owner` 字段可以直接访问（`r1.owner`）。其他字段需要使用 `get.record.dynamic`。
 
-> 注意：接受 `record.dynamic` 的函数不会验证所有权，也不会 nullify 该 record。只有接收 static record 输入的函数才会消耗（nullify）record。
+> 注意：接受 `record.dynamic` 的函数不会验证所有权，也不会作废（nullify）该 record。只有接收 static record 输入的函数才会消耗并作废（nullify）record。
 
 ### Dynamic Futures（动态 Future）
 
@@ -129,4 +129,4 @@ finalize my_function:
 | `.private` | 以零知识方式证明，但不公开 |
 | `.constant` | 编译期常量 |
 
-Closures（闭包）的输入和输出不使用可见性修饰符。
+闭包（closures）的输入和输出不使用可见性修饰符。
