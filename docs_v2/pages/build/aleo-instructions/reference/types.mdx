@@ -2,6 +2,131 @@
 title: Types
 ---
 
-# Types
+# Types（类型）
 
-TODO: Add Aleo Instructions types content.
+## Primitive Types（基础类型）
+
+| 类型 | 说明 |
+|---|---|
+| `address` | Aleo 地址（Bech32m 编码，以 `aleo1` 开头） |
+| `boolean` | `true` 或 `false` |
+| `field` | 椭圆曲线的基域元素 |
+| `group` | Twisted Edwards 曲线上的点（`a = -1`，`d = 3021`） |
+| `scalar` | 由曲线子群定义的标量域元素 |
+| `signature` | Schnorr 签名 |
+| `i8`、`i16`、`i32`、`i64`、`i128` | 有符号整数 |
+| `u8`、`u16`、`u32`、`u64`、`u128` | 无符号整数 |
+
+## Composite Types（复合类型）
+
+### Structs（结构体）
+
+Structs（结构体）会把多个字段组合成可复用的复合类型。字段可通过点语法访问，新实例可通过 `cast` 创建。
+
+```aleo
+struct array3:
+    a0 as u32;
+    a1 as u32;
+    a2 as u32;
+
+function sum_one_to_array3:
+    input r0 as array3.private;
+    add r0.a0 1u32 into r1;
+    add r0.a1 1u32 into r2;
+    add r0.a2 1u32 into r3;
+    cast r1 r2 r3 into r4 as array3;
+    output r4 as array3.private;
+```
+
+### Arrays（数组）
+
+Arrays（数组）是固定长度、单一类型的集合，写作 `[{type}; {length}]`。数组支持索引和嵌套。
+
+```aleo
+// Initialize an array
+cast r0 r1 r2 into r3 as [boolean; 3u32];
+
+// Index an array
+r0[r1] into r2;
+
+// Nested arrays
+r0[0u32][1u32] into r1;
+```
+
+数组最大大小为 2,048 个元素（在 Aleo Stack v4.6.0 中从 512 提升到 2,048，以支持 `snark.verify` 使用的 verifying keys 和 proofs）。
+
+### Records（记录）
+
+Records（记录）表示私有的、用户拥有的状态。它们必须包含 `owner` 字段。交易会消耗已有 record，并产生新的 record。
+
+```aleo
+record token:
+    owner as address.private;
+    amount as u64.private;
+
+function mint:
+    input r0 as u64.private;
+    cast self.signer r0 into r1 as token.record;
+    output r1 as token.record;
+```
+
+当 record 作为输入传入时，还需要 `_nonce as group.{visibility}` 字段。
+
+### Mappings（映射）
+
+Mappings（映射）是公开存在于链上的 key-value 存储。它们只能在 finalize 块中通过 mapping operations（映射操作）访问。
+
+```aleo
+mapping account:
+    key as address.public;
+    value as u64.public;
+```
+
+### Dynamic Records（动态记录）
+
+在 Consensus V14 中新增。
+
+`record.dynamic` 是任意 record 的固定大小通用表示，可跨 dynamic call（动态调用）边界使用。与 static record（静态记录）不同，无论数据字段的数量或类型如何变化，它的大小都是固定的。
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `owner` | `address` | record 的所有者 |
+| `_root` | `field` | record 数据条目的 Merkle root |
+| `_nonce` | `group` | record nonce |
+| `_version` | `u8` | record 版本 |
+
+`record.dynamic` 不能直接实例化。它必须作为输入接收、从 `call.dynamic` 返回，或通过 cast 静态 record 创建：
+
+```aleo
+cast r0 into r1 as record.dynamic;
+```
+
+`owner` 字段可以直接访问（`r1.owner`）。其他字段需要使用 `get.record.dynamic`。
+
+> 注意：接受 `record.dynamic` 的函数不会验证所有权，也不会 nullify 该 record。只有接收 static record 输入的函数才会消耗（nullify）record。
+
+### Dynamic Futures（动态 Future）
+
+在 Consensus V14 中新增。
+
+`future.dynamic` 只会在被调用方返回 future 时由 `call.dynamic` 产生。与 static future 一样，它必须由 `async` 消费，并在 finalize 中 `await`：
+
+```aleo
+finalize my_function:
+    input r0 as future.dynamic;
+    await r0;
+```
+
+`future.dynamic` 不能由函数直接输出——它必须通过 `async` 指令包装成 static future。
+
+## Visibility（可见性）
+
+函数中的每个值都有一个 visibility modifier（可见性修饰符）：
+
+| 修饰符 | 说明 |
+|---|---|
+| `.public` | 在交易中公开 |
+| `.private` | 以零知识方式证明，但不公开 |
+| `.constant` | 编译期常量 |
+
+Closures（闭包）的输入和输出不使用可见性修饰符。
