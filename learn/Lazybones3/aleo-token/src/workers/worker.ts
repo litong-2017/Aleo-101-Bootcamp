@@ -8,7 +8,7 @@ import {
   AleoNetworkClient,
   NetworkRecordProvider,
   verifyProof,
-} from "@provablehq/sdk";
+} from "@provablehq/sdk/testnet.js";
 import { expose, proxy } from "comlink";
 
 await initThreadPool();

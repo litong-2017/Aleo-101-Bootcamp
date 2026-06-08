@@ -1,5 +1,5 @@
-// The 'simple_token' program.
-program simple_token.aleo {
+// The 'unstable_token' program.
+program unstable_token.aleo {
     record Token {
         owner: address,
         amount: u64,
