@@ -2,6 +2,288 @@
 title: Cryptographic Operations
 ---
 
-# Cryptographic Operations
+# Cryptographic Operations（加密操作）
 
-TODO: Add Aleo Instructions cryptographic operations content.
+Cryptographic operations（加密操作）用于在 Aleo Instructions 中执行承诺、哈希、签名验证和证明验证。它们通常用于隐藏私有输入、生成公开承诺、绑定消息摘要，或在程序中验证来自外部系统的签名和证明。
+
+## Commitments（承诺）
+
+`commit` 指令会把输入值和随机数绑定成一个 commitment（承诺）。承诺值可以公开输出，但只有知道原始输入和随机数的人才能打开它。
+
+```aleo
+commit.bhp256 r0 r1 into r2 as field;
+```
+
+语法：
+
+```aleo
+commit.<algorithm> <input> <randomizer> into <destination> as <type>;
+```
+
+其中：
+
+| 项 | 说明 |
+|---|---|
+| `<input>` | 要承诺的输入值 |
+| `<randomizer>` | `scalar` 类型的随机数 |
+| `<destination>` | 存放承诺结果的目标寄存器 |
+| `<type>` | 输出类型，只能是 `address`、`field` 或 `group` |
+
+支持的 commitment algorithms（承诺算法）：
+
+| 指令 | 说明 |
+|---|---|
+| `commit.bhp256` | 对输入执行 256-bit chunk 的 BHP commitment |
+| `commit.bhp512` | 对输入执行 512-bit chunk 的 BHP commitment |
+| `commit.bhp768` | 对输入执行 768-bit chunk 的 BHP commitment |
+| `commit.bhp1024` | 对输入执行 1024-bit chunk 的 BHP commitment |
+| `commit.ped64` | 对输入执行 64-bit chunk 的 Pedersen commitment |
+| `commit.ped128` | 对输入执行 128-bit chunk 的 Pedersen commitment |
+
+这些指令也有 `.raw` 变体，例如：
+
+```aleo
+commit.bhp256.raw r0 r1 into r2 as field;
+commit.ped128.raw r0 r1 into r2 as group;
+```
+
+普通变体会使用 Aleo 的类型标记序列化形式。`.raw` 变体使用原始 bits，不包含类型标记。对同一个输入和同一个随机数，普通变体和 `.raw` 变体可能得到不同结果。
+
+## Hashes（哈希）
+
+`hash` 指令会把输入值映射到指定输出类型。
+
+```aleo
+hash.bhp256 r0 into r1 as field;
+```
+
+语法：
+
+```aleo
+hash.<algorithm> <input> into <destination> as <type>;
+```
+
+其中 `<type>` 可以是 `address`、`field`、`group`、`scalar` 或整数类型，例如 `u64`、`i128`。不能把普通 hash 直接输出为 `boolean`、`string`、`identifier`、struct 或 array。
+
+### BHP 和 Pedersen
+
+| 指令 | 说明 |
+|---|---|
+| `hash.bhp256` | 对输入执行 256-bit chunk 的 BHP hash |
+| `hash.bhp512` | 对输入执行 512-bit chunk 的 BHP hash |
+| `hash.bhp768` | 对输入执行 768-bit chunk 的 BHP hash |
+| `hash.bhp1024` | 对输入执行 1024-bit chunk 的 BHP hash |
+| `hash.ped64` | 对输入执行 64-bit chunk 的 Pedersen hash |
+| `hash.ped128` | 对输入执行 128-bit chunk 的 Pedersen hash |
+
+示例：
+
+```aleo
+hash.bhp256 r0 into r1 as address;
+hash.bhp256 r0 into r1 as field;
+hash.bhp256 r0 into r1 as group;
+hash.bhp256 r0 into r1 as scalar;
+hash.bhp256 r0 into r1 as u64;
+hash.ped128 r0 into r1 as field;
+```
+
+这些指令也支持 `.raw` 变体：
+
+```aleo
+hash.bhp512.raw r0 into r1 as field;
+hash.ped64.raw r0 into r1 as u128;
+```
+
+### Poseidon
+
+Poseidon hash 在零知识电路中通常比 Keccak 或 SHA3 更高效，因为它直接运行在 field 上。
+
+| 指令 | 说明 |
+|---|---|
+| `hash.psd2` | Poseidon hash，input rate 为 2 |
+| `hash.psd4` | Poseidon hash，input rate 为 4 |
+| `hash.psd8` | Poseidon hash，input rate 为 8 |
+
+示例：
+
+```aleo
+hash.psd2 r0 into r1 as field;
+hash.psd4 r0 into r1 as scalar;
+hash.psd8 r0 into r1 as address;
+```
+
+这些指令也支持 `.raw` 变体：
+
+```aleo
+hash.psd2.raw r0 into r1 as field;
+hash.psd8.raw r0 into r1 as scalar;
+```
+
+`hash_many.psd2`、`hash_many.psd4` 和 `hash_many.psd8` 出现在语法和 opcode 枚举中，但当前 snarkVM 对它们仍返回 not implemented。编写程序时不要依赖这些指令，除非目标 Aleo Stack 版本明确支持。
+
+### Keccak 和 SHA3
+
+Keccak 与 SHA3 hash 适合和外部生态中的摘要格式交互。
+
+| 指令 | 说明 |
+|---|---|
+| `hash.keccak256` | Keccak-256 hash |
+| `hash.keccak384` | Keccak-384 hash |
+| `hash.keccak512` | Keccak-512 hash |
+| `hash.sha3_256` | SHA3-256 hash |
+| `hash.sha3_384` | SHA3-384 hash |
+| `hash.sha3_512` | SHA3-512 hash |
+
+示例：
+
+```aleo
+hash.keccak256 r0 into r1 as field;
+hash.sha3_256 r0 into r1 as address;
+```
+
+这些指令也支持 `.raw` 变体。`.raw` 变体要求输入的 bit 长度是 8 的倍数。
+
+```aleo
+hash.keccak256.raw r0 into r1 as field;
+hash.sha3_512.raw r0 into r1 as scalar;
+```
+
+Keccak 与 SHA3 还支持 `.native` 和 `.native.raw` 变体，用于把底层 digest 输出为 bit array：
+
+```aleo
+hash.keccak256.native r0 into r1 as [boolean; 256u32];
+hash.keccak384.native r0 into r1 as [boolean; 384u32];
+hash.sha3_512.native.raw r0 into r1 as [boolean; 512u32];
+```
+
+## Schnorr Signature Verification（Schnorr 签名验证）
+
+Aleo 账户使用 Schnorr signature（Schnorr 签名）。`sign.verify` 用于验证签名是否由指定 Aleo address 对指定消息生成。
+
+```aleo
+sign.verify r0 r1 r2 into r3;
+```
+
+语法：
+
+```aleo
+sign.verify <signature> <address> <message> into <destination>;
+```
+
+类型：
+
+| 项 | 类型 |
+|---|---|
+| `<signature>` | `signature` |
+| `<address>` | `address` |
+| `<message>` | 可转换为 field 序列的 Aleo 值 |
+| `<destination>` | `boolean` |
+
+示例：
+
+```aleo
+function verify_message:
+    input r0 as signature.public;
+    input r1 as address.public;
+    input r2 as field.public;
+    sign.verify r0 r1 r2 into r3;
+    output r3 as boolean.public;
+```
+
+## ECDSA Signature Verification（ECDSA 签名验证）
+
+`ecdsa.verify` 系列指令用于验证外部 ECDSA 签名。它们只能在 `finalize` scope 中使用，返回 `boolean`。
+
+通用语法：
+
+```aleo
+ecdsa.verify.<variant> <signature> <public-key-or-address> <message> into <destination>;
+```
+
+输入类型：
+
+| 项 | 类型 |
+|---|---|
+| `<signature>` | `[u8; 65u32]` |
+| `<public-key>` | 非 Ethereum 变体使用 `[u8; 33u32]` 压缩公钥 |
+| `<ethereum-address>` | `.eth` 变体使用 `[u8; 20u32]` Ethereum 地址 |
+| `<message>` | digest 变体使用 `[u8; 32u32]`，hash 变体使用待哈希消息 |
+| `<destination>` | `boolean` |
+
+支持的 ECDSA variants：
+
+| 指令 | 说明 |
+|---|---|
+| `ecdsa.verify.digest` | 使用预计算 digest 和压缩公钥验证 |
+| `ecdsa.verify.digest.eth` | 使用预计算 digest 和 Ethereum 地址验证 |
+| `ecdsa.verify.keccak256` | 使用 Keccak-256 对消息哈希后验证 |
+| `ecdsa.verify.keccak256.raw` | 使用 Keccak-256 对原始 bits 哈希后验证 |
+| `ecdsa.verify.keccak256.eth` | 使用 Keccak-256 和 Ethereum 地址验证 |
+| `ecdsa.verify.keccak384` | 使用 Keccak-384 对消息哈希后验证 |
+| `ecdsa.verify.keccak384.raw` | 使用 Keccak-384 对原始 bits 哈希后验证 |
+| `ecdsa.verify.keccak384.eth` | 使用 Keccak-384 和 Ethereum 地址验证 |
+| `ecdsa.verify.keccak512` | 使用 Keccak-512 对消息哈希后验证 |
+| `ecdsa.verify.keccak512.raw` | 使用 Keccak-512 对原始 bits 哈希后验证 |
+| `ecdsa.verify.keccak512.eth` | 使用 Keccak-512 和 Ethereum 地址验证 |
+| `ecdsa.verify.sha3_256` | 使用 SHA3-256 对消息哈希后验证 |
+| `ecdsa.verify.sha3_256.raw` | 使用 SHA3-256 对原始 bits 哈希后验证 |
+| `ecdsa.verify.sha3_256.eth` | 使用 SHA3-256 和 Ethereum 地址验证 |
+| `ecdsa.verify.sha3_384` | 使用 SHA3-384 对消息哈希后验证 |
+| `ecdsa.verify.sha3_384.raw` | 使用 SHA3-384 对原始 bits 哈希后验证 |
+| `ecdsa.verify.sha3_384.eth` | 使用 SHA3-384 和 Ethereum 地址验证 |
+| `ecdsa.verify.sha3_512` | 使用 SHA3-512 对消息哈希后验证 |
+| `ecdsa.verify.sha3_512.raw` | 使用 SHA3-512 对原始 bits 哈希后验证 |
+| `ecdsa.verify.sha3_512.eth` | 使用 SHA3-512 和 Ethereum 地址验证 |
+
+示例：
+
+```aleo
+finalize verify_eth_signature:
+    input r0 as [u8; 65u32];
+    input r1 as [u8; 20u32];
+    input r2 as [u8; 32u32];
+    ecdsa.verify.digest.eth r0 r1 r2 into r3;
+```
+
+`.raw` 和 `.eth` 变体要求消息按 byte 对齐，也就是 bit 长度必须是 8 的倍数。
+
+## SNARK Verification（SNARK 验证）
+
+`snark.verify` 用于在 `finalize` scope 中验证 Varuna proof。验证结果会写入一个 `boolean` 寄存器。
+
+```aleo
+snark.verify r0 r1 r2 r3 into r4;
+```
+
+语法：
+
+```aleo
+snark.verify <verifying-key> <varuna-version> <public-inputs> <proof> into <destination>;
+```
+
+类型：
+
+| 项 | 类型 |
+|---|---|
+| `<verifying-key>` | byte array |
+| `<varuna-version>` | `u8` |
+| `<public-inputs>` | field array |
+| `<proof>` | byte array |
+| `<destination>` | `boolean` |
+
+`snark.verify.batch` 用于批量验证：
+
+```aleo
+snark.verify.batch r0 r1 r2 r3 into r4;
+```
+
+批量验证时：
+
+| 项 | 类型 |
+|---|---|
+| `<verifying-keys>` | two-dimensional byte array |
+| `<public-inputs>` | three-dimensional field array |
+| `<proof>` | byte array |
+| `<destination>` | `boolean` |
+
+当前批量验证最多支持 32 个 circuits、128 个 proof instances。验证密钥数量必须和 public input 的 circuit 数量一致。
