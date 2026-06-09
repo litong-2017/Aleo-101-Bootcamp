@@ -4,4 +4,124 @@ title: Programs
 
 # Programs
 
-TODO: Add Aleo Instructions programs content.
+## 程序 ID
+
+程序 ID（Program ID）的声明格式为 `{name}.{network}`。`name` 的首字母必须小写，且只能包含小写字母、数字和下划线。目前，`aleo` 是唯一支持的网络域名（network domain）。
+
+```bash
+program hello.aleo;   // valid
+program Foo.aleo;     // invalid — must start lowercase
+program 0foo.aleo;    // invalid — must start with a letter
+```
+
+## 导入
+
+导入（Imports）可以将其他程序中的声明引入到当前文件作用域中。导入语句必须出现在程序声明之前。
+
+```bash
+import foo.aleo;
+
+program hello.aleo;
+```
+
+## 函数
+
+函数（Functions）是程序的主要入口。调用函数会创建一个 Transition（状态转变），该过程可以消耗并在链上生成新的 Record（凭证）。
+
+```bash
+function foo:
+    input r0 as field.public;
+    input r1 as field.private;
+    add r0 r1 into r2;
+    output r2 as field.private;
+```
+
+输入参数在函数声明后立即声明，格式为：`input {register} as {type}.{visibility};`
+
+输出结果在函数体末尾声明，格式为：`output {register} as {type}.{visibility};`
+
+函数内部可以使用两个内置操作数：
+
+| 操作数 | 类型 | 描述 |
+| :---: | :---: | :---: |
+| `self.signer` | `address` | 发起转换的用户地址 |
+| `self.caller` | `address` | 直接呼叫者（用户或程序）的地址 |
+
+> **小提示**
+>
+>使用 `assert.eq self.caller self.signer;` 可以将会话限制为仅允许用户直接调用。使用 `assert.neq self.caller self.signer;` 可以将其限制为仅允许程序间（跨合约）调用。
+
+外部调用（跨程序调用）需使用带有程序定位符（program locator）的 `call` 指令：
+
+```bash
+import foo.aleo;
+
+program bar.aleo;
+
+function call_external:
+    input r0 as u64.private;
+    call foo.aleo/baz r0 into r1;
+    output r1 as u64.private;
+```
+
+## 闭包
+
+闭包（Closures）是内部辅助函数，不能由用户直接调用。闭包不能返回 Record、不能进行外部调用，也不能使用 `async/await（异步）`逻辑。
+
+```bash
+closure foo:
+    input r0 as field;
+    input r1 as field;
+    add r0 r1 into r2;
+    output r2 as field;
+```
+
+在内部调用闭包的指令格式为：`call {name} {args} into {register};`。
+
+## Finalize
+
+`finalize`（异步状态固化）块紧跟在与其同名的函数之后。它会在零知识证明通过验证后在链上执行。如果 finalize 块执行失败，整个交易将被回滚（reverted）。
+
+```bash
+function transfer_public:
+    input r0 as address.public;
+    input r1 as u64.public;
+    async transfer_public self.caller r0 r1 into r2;
+    output r2 as credits.aleo/transfer_public.future;
+
+finalize transfer_public:
+    input r0 as address.public;
+    input r1 as address.public;
+    input r2 as u64.public;
+    get account[r0] into r3;
+    sub r3 r2 into r4;
+    set r4 into account[r0];
+    get.or_use account[r1] 0u64 into r5;
+    add r5 r2 into r6;
+    set r6 into account[r1];
+```
+
+## Futures 
+
+Future（期约/未来量）代表由`异步`调用产生的链上执行调用图（call graph）。它们允许程序跨越程序边界来组合 finalize 逻辑。
+
+```bash
+// Produce a future
+async add_and_count self.caller into r3;
+output r3 as basic_math.aleo/add_and_count.future;
+
+// Consume a future in finalize
+finalize add_and_subtract:
+    input r0 as basic_math.aleo/add_and_count.future;
+    input r1 as basic_math.aleo/sub_and_count.future;
+    await r0;
+    await r1;
+```
+
+规则：
+
+1. 如果一个函数包含 finalize 块，则它必须包含且仅包含一条 `asyn`c` 指令。
+2. 函数的最后一个输出必须是一个 future。
+3. 所有来自 `call` 指令的 future 必须按照创建顺序传递给 `async`。
+4. finalize 块中的所有 future 必须按照指定的顺序进行 `await`（等待）。
+5. 所有的 `call` 指令必须在 `async` 指令之前执行。
