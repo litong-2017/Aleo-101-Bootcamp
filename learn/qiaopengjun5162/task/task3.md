@@ -4,8 +4,7 @@
 
 - 项目名称：Aleo Private Vote
 - 项目类型：基于 Leo、TypeScript SDK、Rust snarkVM、后端 API 和 Next.js 前端的隐私投票 DApp
-- 代码目录：`learn/qiaopengjun5162/task/aleo-private-vote`
-- GitHub 仓库：https://github.com/qiaopengjun5162/aleo-private-vote
+- 源码仓库：https://github.com/qiaopengjun5162/aleo-private-vote
 
 ## 实现内容
 
