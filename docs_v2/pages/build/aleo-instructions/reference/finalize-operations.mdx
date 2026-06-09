@@ -2,6 +2,258 @@
 title: Finalize Operations
 ---
 
-# Finalize Operations
+# Finalize Operations（Finalize 操作）
 
-TODO: Add Aleo Instructions finalize operations content.
+Finalize blocks（finalize 块）用于执行必须在链上完成的逻辑，例如读取或更新公开的 program state（程序状态）。一个带有 finalize 块的函数会先在链下执行并生成零知识证明；当证明验证通过后，关联的 finalize 块才会在链上执行。
+
+如果 finalize 块执行成功，交易会被接受并更新链上状态。如果 finalize 块执行失败，相关程序逻辑会回滚。
+
+```aleo
+function transfer_public:
+    input r0 as address.public;
+    input r1 as u64.public;
+    async transfer_public self.caller r0 r1 into r2;
+    output r2 as credits.aleo/transfer_public.future;
+
+finalize transfer_public:
+    input r0 as address.public;
+    input r1 as address.public;
+    input r2 as u64.public;
+    get account[r0] into r3;
+    sub r3 r2 into r4;
+    set r4 into account[r0];
+    get.or_use account[r1] 0u64 into r5;
+    add r5 r2 into r6;
+    set r6 into account[r1];
+```
+
+## Mapping Operations（映射操作）
+
+Mappings（映射）是公开的链上 key-value 存储。映射只能在 finalize 块中访问和修改。
+
+```aleo
+mapping account:
+    key as address.public;
+    value as u64.public;
+```
+
+### `contains`
+
+`contains` 用于检查映射中是否存在某个 key，并把结果写入目标寄存器。
+
+```aleo
+contains account[r0] into r1;
+```
+
+语法：
+
+```aleo
+contains <MAPPING_NAME>[<KEY>] into <REGISTER>;
+```
+
+### `get`
+
+`get` 用于从映射中读取某个 key 对应的 value。如果 key 不存在，执行会失败。
+
+```aleo
+get account[r0] into r1;
+```
+
+语法：
+
+```aleo
+get <MAPPING_NAME>[<KEY>] into <REGISTER>;
+```
+
+也可以读取外部程序的映射：
+
+```aleo
+get credits.aleo/account[aleo1...] into r0;
+```
+
+### `get.or_use`
+
+`get.or_use` 用于从映射中读取某个 key 对应的 value；如果 key 不存在，则使用给定的默认值。
+
+```aleo
+get.or_use account[r0] 0u64 into r1;
+```
+
+语法：
+
+```aleo
+get.or_use <MAPPING_NAME>[<KEY>] <DEFAULT_VALUE> into <REGISTER>;
+```
+
+读取外部程序映射时也可以使用默认值：
+
+```aleo
+get.or_use credits.aleo/account[aleo1...] 0u64 into r1;
+```
+
+### `set`
+
+`set` 用于设置或更新映射中的 key-value。
+
+```aleo
+set r1 into account[r0];
+```
+
+语法：
+
+```aleo
+set <VALUE> into <MAPPING_NAME>[<KEY>];
+```
+
+### `remove`
+
+`remove` 用于从映射中移除某个 key-value。
+
+```aleo
+remove account[r0];
+```
+
+语法：
+
+```aleo
+remove <MAPPING_NAME>[<KEY>];
+```
+
+## Block and Network Operands（区块与网络操作数）
+
+以下操作数只能在 finalize 块中使用，常用于时间锁、访问控制或针对不同网络执行不同逻辑。
+
+### `block.height`
+
+`block.height` 返回程序执行所在区块的高度，即最新区块高度加 1。返回类型为 `u64`。
+
+```aleo
+assert.eq block.height 100u64;
+```
+
+### `block.timestamp`
+
+`block.timestamp` 返回当前区块的 Unix timestamp。返回类型为 `i64`。
+
+```aleo
+assert.eq block.timestamp 1767976339i64;
+```
+
+### `network.id`
+
+`network.id` 返回程序执行所在网络的 ID。返回类型为 `u64`。
+
+```aleo
+assert.eq network.id 0u64;
+```
+
+当前支持的网络 ID：
+
+| ID | 网络 |
+|---|---|
+| `0` | Mainnet |
+| `1` | Testnet |
+| `2` | Canarynet |
+
+## Randomness（随机数）
+
+### `rand.chacha`
+
+`rand.chacha` 使用 ChaCha20 算法生成随机值。它只能在 finalize 作用域中使用，最多可以传入两个额外 seed。
+
+```aleo
+rand.chacha into r0 as field;
+rand.chacha r0 into r1 as field;
+rand.chacha r0 r1 into r2 as field;
+```
+
+`rand.chacha` 支持生成以下类型：
+
+```text
+address, boolean, field, group, scalar,
+i8, i16, i32, i64, i128,
+u8, u16, u32, u64, u128
+```
+
+## Branching（分支）
+
+Finalize 块支持通过 `position` 设置跳转位置，并通过 `branch.eq` 或 `branch.neq` 条件跳转到该位置。
+
+### `position`
+
+`position` 用于声明一个分支跳转目标。
+
+```aleo
+position exit;
+```
+
+### `branch.eq`
+
+`branch.eq` 会在两个操作数相等时跳转到指定的 `position`。
+
+```aleo
+branch.eq r0 0u8 to exit;
+```
+
+### `branch.neq`
+
+`branch.neq` 会在两个操作数不相等时跳转到指定的 `position`。
+
+```aleo
+branch.neq r0 0u8 to exit;
+```
+
+下面的 finalize 块会在输入为 `0u8` 时成功退出，否则执行失败：
+
+```aleo
+program test_branch.aleo;
+
+function run_test:
+    input r0 as u8.public;
+    async run_test r0 into r1;
+    output r1 as test_branch.aleo/run_test.future;
+
+finalize run_test:
+    input r0 as u8.public;
+    branch.eq r0 0u8 to exit;
+    assert.eq true false;
+    position exit;
+```
+
+## Futures and `await`（Future 与 await）
+
+如果一个函数包含 finalize 块，它必须通过 `async` 指令创建一个 future，并把该 future 作为函数的最后一个输出。
+
+```aleo
+function increment:
+    input r0 as u64.public;
+    async increment r0 into r1;
+    output r1 as counter.aleo/increment.future;
+
+finalize increment:
+    input r0 as u64.public;
+    get.or_use count[0u8] 0u64 into r1;
+    add r1 r0 into r2;
+    set r2 into count[0u8];
+```
+
+在 finalize 块中，可以使用 `await` 执行其他 future。
+
+```aleo
+finalize compose:
+    input r0 as basic_math.aleo/add_and_count.future;
+    input r1 as basic_math.aleo/sub_and_count.future;
+    await r0;
+    await r1;
+```
+
+使用 future 和 finalize 时需要遵守以下规则：
+
+1. 如果函数有 finalize 块，它必须且只能有一个 `async` 指令。
+2. 如果函数有 finalize 块，它的最后一个输出必须是 future。
+3. 如果函数没有 finalize 块，则不能包含 `async` 指令。
+4. 由 `call` 创建的所有 future 必须按产生顺序传入 `async` 指令。
+5. `async` 调用必须引用同一个函数。
+6. 所有 `call` 都必须在调用 `async` 之前完成。
+7. finalize 块中的 future 输入类型必须与函数中创建 future 的顺序一致。
+8. finalize 中的所有 future 都必须按指定顺序被 `await`。
