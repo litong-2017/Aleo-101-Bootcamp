@@ -1,7 +1,66 @@
 ---
-title: Signing and Verifying
+title: 签名和验证
 ---
 
-# Signing and Verifying
+# 签名和验证
 
-TODO: Add Leo signing and verifying guide content.
+除了创建账户之外，`leo account` 还可用于对数据进行签名并验证签名。这对于依赖签名数据作为输入的某类应用非常有用。
+
+## 签名
+
+`leo account sign` 命令使开发者和用户能够使用 Aleo 私钥创建加密签名。这些签名可以在 Leo 中使用 `signature::verify` 函数进行验证，也可以使用 `leo account verify` 命令进行验证。
+
+要为 Leo 和 Aleo 值生成签名，请运行以下命令：
+
+```bash
+# 将 `5field` 替换为任意 aleo 值
+leo account sign --private-key {$PRIVATE_KEY} -m 5field
+
+# 输出：
+sign1...
+```
+
+要为任意明文生成签名，请使用 `--raw` 标志：
+
+```bash
+# 将 "Hello, Aleo" 替换为任意明文消息
+leo account sign --private-key {$PRIVATE_KEY} -raw -m "Hello, Aleo"
+
+# 输出：
+sign1...
+```
+
+除了使用 `--private-key` 标志外，还有几种替代方式：
+
+- `--private-key-file <path/to/file>` - 从文本文件中读取私钥
+- 不带标志 - 从环境变量或 `.env` 中读取私钥
+
+## 验证
+
+作为 `leo account sign` 命令的配套命令，`leo account verify` 命令用于验证 Aleo 值和明文消息的签名。
+
+要验证已签名的 aleo 值，请运行：
+
+```bash
+# 将 `5field` 替换为消息，并将 `sign1signaturehere` 替换为签名
+leo account verify -a {$ADDRESS} -m 5field -s sign1signaturehere
+
+# 输出：
+✅ The signature is valid
+
+# 错误输出：
+Error [ECLI0377002]: cli error: ❌ The signature is invalid
+```
+
+要验证已签名明文值的签名，请运行：
+
+```bash
+# 将 "Hello, Aleo" 替换为消息，并将 `sign1signaturehere` 替换为签名
+leo account verify -a {$ADDRESS} --raw -m "Hello, Aleo" -s sign1signaturehere
+
+# 输出：
+✅ The signature is valid
+
+# 错误输出：
+Error [ECLI0377002]: cli error: ❌ The signature is invalid
+```
