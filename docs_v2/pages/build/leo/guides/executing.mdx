@@ -2,6 +2,74 @@
 title: Executing
 ---
 
-# Executing
+# 执行你的程序
 
-TODO: Add Leo executing guide content.
+`leo execute` 命令会执行 Leo 程序中的函数，并输出一个交易对象：
+
+```bash
+leo execute <FUNCTION_NAME> <INPUT_1> <INPUT_2> ...
+```
+
+你也可以通过以下方式执行远程 Leo 程序中的函数：
+
+```bash
+leo execute <PROGRAM_NAME>.aleo::<FUNCTION_NAME> <INPUT_1> <INPUT_2> ...
+```
+
+如果执行的是本地程序中的函数，`leo execute` 会先构建 / 编译该程序：
+
+```bash title="console output:"
+       Leo     2 statements before dead code elimination.
+       Leo     2 statements after dead code elimination.
+       Leo     The program checksum is: '[212u8, 91u8, ... , 107u8]'.
+       Leo ✅ Compiled 'hello.aleo' into Aleo instructions.
+
+```
+
+随后，它会打印执行计划摘要：
+
+```bash
+🚀 Execution Plan Summary
+──────────────────────────────────────────────
+🔧 Configuration:
+  Private Key:        APrivateKey1zkp...
+  Address:            aleo1...
+  Endpoint:           https://api.explorer.provable.com/v1
+  Network:            <testnet | mainnet>
+  Consensus Version:  9
+
+🎯 Execution Target:
+  Program:        <PROGRAM_NAME>
+  Function:       <FUNCTION_NAME>
+  Source:         <local | remote>
+
+💸 Fee Info:
+  Priority Fee:   0 μcredits
+  Fee Record:     no (public fee)
+
+⚙️ Actions:
+  - Transaction will NOT be printed to the console.
+  - Transaction will NOT be saved to a file.
+  - Transaction will NOT be broadcast to the network.
+```
+
+最后，控制台会打印执行费用明细，以及函数本身产生的所有输出。
+
+```bash
+📊 Execution Summary for <PROGRAM_NAME>
+──────────────────────────────────────────────
+💰 Cost Breakdown (credits)
+  Transaction Storage:  0.001316
+  On-chain Execution:   0.000000
+  Priority Fee:         0.000000
+  Total Fee:            0.001316
+──────────────────────────────────────────────
+
+➡️  Output
+
+  • <OUTPUT_1>
+  • <OUTPUT_2>
+  ...
+```
+
+在底层，`leo execute` 会生成一个 JSON 对象。这个对象是一个可以广播到 Aleo 网络的 [`Transaction`](https://developer.aleo.org/concepts/fundamentals/transactions)。如果你想查看该 JSON，可以在运行 `leo execute` 时传入 `--print` 标志。
