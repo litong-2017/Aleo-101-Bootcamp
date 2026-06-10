@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Private Token — Aleo ZK dApp</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'SF Pro Display', -apple-system, sans-serif;
+      background: #0a0a0f;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .header h1 {
+      font-size: 2rem;
+      background: linear-gradient(135deg, #6c63ff, #3ecfcf);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+    .header p { color: #888; font-size: 0.95rem; }
+    .badge {
+      display: inline-block;
+      background: rgba(108, 99, 255, 0.15);
+      border: 1px solid rgba(108, 99, 255, 0.4);
+      color: #a89cff;
+      font-size: 0.75rem;
+      padding: 3px 10px;
+      border-radius: 20px;
+      margin-top: 8px;
+    }
+    .container {
+      width: 100%;
+      max-width: 700px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .card {
+      background: #13131a;
+      border: 1px solid #2a2a3a;
+      border-radius: 16px;
+      padding: 24px;
+    }
+    .card h2 {
+      font-size: 1rem;
+      color: #aaa;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card h2 span { font-size: 1.2rem; }
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-size: 0.8rem; color: #666; margin-bottom: 6px; }
+    .field input {
+      width: 100%;
+      background: #0a0a0f;
+      border: 1px solid #2a2a3a;
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: #e0e0e0;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .field input:focus { border-color: #6c63ff; }
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary {
+      background: linear-gradient(135deg, #6c63ff, #3ecfcf);
+      color: white;
+    }
+    .btn-secondary {
+      background: rgba(108, 99, 255, 0.12);
+      border: 1px solid rgba(108, 99, 255, 0.3);
+      color: #a89cff;
+    }
+    .output-box {
+      margin-top: 14px;
+      background: #0a0a0f;
+      border: 1px solid #1e1e2e;
+      border-radius: 8px;
+      padding: 14px;
+      font-family: 'SF Mono', monospace;
+      font-size: 0.82rem;
+      color: #3ecfcf;
+      min-height: 60px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .balance-display {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px;
+      background: rgba(62, 207, 207, 0.05);
+      border: 1px solid rgba(62, 207, 207, 0.2);
+      border-radius: 12px;
+      margin-bottom: 16px;
+    }
+    .balance-display .amount {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #3ecfcf;
+    }
+    .balance-display .label { color: #666; font-size: 0.8rem; }
+    .privacy-note {
+      background: rgba(108, 99, 255, 0.08);
+      border: 1px solid rgba(108, 99, 255, 0.2);
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 0.82rem;
+      color: #888;
+      line-height: 1.6;
+    }
+    .privacy-note strong { color: #a89cff; }
+    .status { margin-top: 10px; font-size: 0.82rem; color: #666; }
+    .status.success { color: #3ecfcf; }
+    .status.error { color: #ff6b6b; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🔐 Private Token</h1>
+    <p>Zero-Knowledge Privacy-Preserving Token on Aleo</p>
+    <span class="badge">Powered by Leo + snarkVM</span>
+  </div>
+
+  <div class="container">
+    <!-- Privacy Note -->
+    <div class="privacy-note">
+      <strong>🛡️ How privacy works:</strong> Your token balance is stored as an encrypted
+      <strong>record</strong> on-chain. Only you (the owner) can decrypt it with your view key.
+      When you transfer tokens, a ZK proof guarantees the math is correct — without revealing
+      your actual balance to anyone on the network.
+    </div>
+
+    <!-- My Wallet -->
+    <div class="card">
+      <h2><span>👤</span> My Wallet</h2>
+      <div class="balance-display">
+        <div>
+          <div class="amount" id="myBalance">1000</div>
+          <div class="label">Private Token Balance (simulated)</div>
+        </div>
+        <div style="margin-left:auto; font-size:0.75rem; color:#444; max-width:280px; word-break:break-all;">
+          <div style="color:#555; margin-bottom:4px;">Address:</div>
+          <div id="myAddress" style="color:#6c63ff;">aleo1qhclktn...demo</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mint Tokens -->
+    <div class="card">
+      <h2><span>⚡</span> Mint Tokens</h2>
+      <div class="field">
+        <label>Amount to Mint</label>
+        <input type="number" id="mintAmount" value="500" min="1" />
+      </div>
+      <button class="btn btn-primary" onclick="mint()">Mint Private Tokens</button>
+      <div class="output-box" id="mintOutput">// Leo transition output will appear here
+// leo run mint 500u64</div>
+      <div class="status" id="mintStatus"></div>
+    </div>
+
+    <!-- Transfer Tokens -->
+    <div class="card">
+      <h2><span>📤</span> Private Transfer</h2>
+      <div class="field">
+        <label>Recipient Address</label>
+        <input type="text" id="recipient" placeholder="aleo1..." value="aleo1rhp6y7y8g7dfv48g85vf0rfnpthufxe6v7qk..." />
+      </div>
+      <div class="field">
+        <label>Transfer Amount</label>
+        <input type="number" id="transferAmount" value="100" min="1" />
+      </div>
+      <button class="btn btn-primary" onclick="transfer()">Send Privately</button>
+      <div class="output-box" id="transferOutput">// ZK proof will be generated locally
+// Your balance remains private on-chain</div>
+      <div class="status" id="transferStatus"></div>
+    </div>
+
+    <!-- View Leo Code -->
+    <div class="card">
+      <h2><span>📄</span> Leo Source Code</h2>
+      <pre style="background:#0a0a0f;border:1px solid #1e1e2e;border-radius:8px;padding:16px;font-family:'SF Mono',monospace;font-size:0.8rem;color:#aaa;overflow-x:auto;line-height:1.6;">
+<span style="color:#6c63ff;">program</span> <span style="color:#3ecfcf;">private_token.aleo</span> {
+
+  <span style="color:#6c63ff;">record</span> Token {
+    owner: <span style="color:#f0a070;">address</span>,
+    amount: <span style="color:#f0a070;">u64</span>,
+  }
+
+  <span style="color:#6c63ff;">transition</span> <span style="color:#3ecfcf;">mint</span>(<span style="color:#6c63ff;">public</span> amount: u64) -> Token {
+    <span style="color:#6c63ff;">return</span> Token { owner: self.caller, amount };
+  }
+
+  <span style="color:#6c63ff;">transition</span> <span style="color:#3ecfcf;">transfer</span>(token: Token,
+    <span style="color:#6c63ff;">public</span> recipient: address,
+    <span style="color:#6c63ff;">public</span> amount: u64) -> (Token, Token) {
+    assert(token.amount >= amount);
+    <span style="color:#6c63ff;">return</span> (
+      Token { owner: token.owner, amount: token.amount - amount },
+      Token { owner: recipient, amount }
+    );
+  }
+}</pre>
+    </div>
+  </div>
+
+  <script>
+    let balance = 1000;
+
+    function mint() {
+      const amount = parseInt(document.getElementById('mintAmount').value) || 0;
+      if (amount <= 0) return;
+
+      const out = document.getElementById('mintOutput');
+      const status = document.getElementById('mintStatus');
+      out.textContent = `$ leo run mint ${amount}u64\n\n✅ Outputs\n ·  token:\n    • owner  : ${document.getElementById('myAddress').textContent} (private)\n    • amount : ${amount}u64 (private)\n\n🔐 Record encrypted and stored on-chain.`;
+
+      balance += amount;
+      document.getElementById('myBalance').textContent = balance;
+      status.className = 'status success';
+      status.textContent = `✓ Minted ${amount} tokens — balance: ${balance}`;
+    }
+
+    function transfer() {
+      const recipient = document.getElementById('recipient').value.trim();
+      const amount = parseInt(document.getElementById('transferAmount').value) || 0;
+      const out = document.getElementById('transferOutput');
+      const status = document.getElementById('transferStatus');
+
+      if (amount <= 0 || !recipient) return;
+      if (amount > balance) {
+        status.className = 'status error';
+        status.textContent = '✗ Insufficient balance';
+        out.textContent = 'Error: token.amount < amount — assertion failed';
+        return;
+      }
+
+      const change = balance - amount;
+      out.textContent = `$ leo run transfer <token> ${recipient} ${amount}u64\n\n✅ Outputs\n · change:\n   • owner  : you (private)\n   • amount : ${change}u64 (private)\n · sent:\n   • owner  : ${recipient.substring(0,20)}... (private)\n   • amount : ${amount}u64 (private)\n\n🔐 ZK proof generated. Neither balance revealed on-chain.`;
+
+      balance = change;
+      document.getElementById('myBalance').textContent = balance;
+      status.className = 'status success';
+      status.textContent = `✓ Sent ${amount} tokens privately — new balance: ${change}`;
+    }
+  </script>
+</body>
+</html>
