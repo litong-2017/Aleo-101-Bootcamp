@@ -8,10 +8,13 @@
 
 一个基于 Aleo 的隐私代币系统，展示零知识证明如何实现"余额私有但转账可验证"的核心特性。
 
-### Leo 合约：`private_token.aleo`
+### Leo 合约：`yuxianwen_token.aleo`
 
 ```leo
-program private_token.aleo {
+program yuxianwen_token.aleo {
+
+    @noupgrade
+    constructor() {}
 
     // Token record: 链上加密存储，只有 owner 用 view key 才能解密查看 amount
     record Token {
@@ -20,15 +23,15 @@ program private_token.aleo {
     }
 
     // 铸造代币：调用者获得私有 Token，amount 作为 public 参数传入
-    transition mint(public amount: u64) -> Token {
+    fn mint(public amount: u64) -> Token {
         return Token {
-            owner: self.caller,
+            owner: self.signer,
             amount: amount,
         };
     }
 
     // 私密转账：通过 ZK 证明保证 sender 余额足够，但余额本身不上链公开
-    transition transfer(
+    fn transfer(
         token: Token,
         public recipient: address,
         public amount: u64
@@ -49,7 +52,7 @@ program private_token.aleo {
     }
 
     // 合并同一 owner 的两个 Token
-    transition combine(first: Token, second: Token) -> Token {
+    fn combine(first: Token, second: Token) -> Token {
         assert_eq(first.owner, second.owner);
         return Token {
             owner: first.owner,
