@@ -117,6 +117,16 @@ Leo CLI 连接测试网后返回的真实部署计划：
 - **链上交互（mint 1000u64）交易 ID**：`at1jnr8m9gmnjy370y06rk0j7jmeall3n64m5e230usmmwwqxvxmqxs8s2kl3`
   - 🔗 https://testnet.explorer.provable.com/transaction/at1jnr8m9gmnjy370y06rk0j7jmeall3n64m5e230usmmwwqxvxmqxs8s2kl3
 
+### 链上截图
+
+**部署交易（DEPLOY · ACCEPTED）**
+
+![Deploy Transaction](./task4_screenshot_deploy.png)
+
+**Mint 链上交互（EXECUTE · ACCEPTED · yuxianwen_token.aleo::mint）**
+
+![Mint Transaction](./task4_screenshot_mint.png)
+
 ### 链上交互输出
 
 mint 执行成功，生成加密 Token record：
