@@ -1,1 +1,6 @@
-
+昵称：kino
+GitHub 用户名：kinokinosama
+微信：chuanjiehuang
+Aleo 钱包地址： aleo1jvrjqhnwv0ts0mg2wrgt83ve7dum32nuk0uegcsv6m0crsd5kqys9hy5r2aleo1jvrjqhnwv0ts0mg2wrgt83ve7dum32nuk0uegcsv6m0crsd5kqys9hy5r2aleo1jvrjqhnwv0ts0mg2wrgt83ve7dum32nuk0uegcsv6m0crsd5kqys9hy5r2
+技术栈：ai全栈
+自我介绍：某211大学，计算机＋ai专业在读的大二本科生
