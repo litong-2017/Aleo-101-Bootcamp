@@ -82,7 +82,7 @@ Leo CLI 连接测试网后返回的真实部署计划：
 🛠️  Deployment Plan Summary
 ────────────────────────────────────────────
 🔧 Configuration:
-  Address:            aleo16vfu6rh4kh9dgng0jxgch420zrdahqqx8nlshp4ujxdtxz69nuyqkqzl5c
+  Address:            aleo1krz4qcek7f8qdhzn79xlf5m6s9hvsfwttgnfyke4fsfaj2jqsu9qwlkmhc
   Endpoint:           https://api.explorer.provable.com/v1
   Network:            testnet
   Consensus Version:  15
@@ -110,9 +110,27 @@ Leo CLI 连接测试网后返回的真实部署计划：
 
 ### 部署地址 & 链上交互
 
-- **部署账户**：`aleo16vfu6rh4kh9dgng0jxgch420zrdahqqx8nlshp4ujxdtxz69nuyqkqzl5c`
-- **测试网合约地址**：待获取测试网 credits 后部署（faucet.aleo.org 当前服务异常）
-- **链上交互截图**：部署成功后补充
+- **部署账户**：`aleo1krz4qcek7f8qdhzn79xlf5m6s9hvsfwttgnfyke4fsfaj2jqsu9qwlkmhc`
+- **测试网合约地址**：[yuxianwen_token.aleo](https://testnet.explorer.provable.com/program/yuxianwen_token.aleo)
+- **部署交易 ID**：`at15c23pk9m2gs6d0q0g9y060l5j2spvalj6ngxd84lxxdn8xrykgqqvuylxd`
+  - 🔗 https://testnet.explorer.provable.com/transaction/at15c23pk9m2gs6d0q0g9y060l5j2spvalj6ngxd84lxxdn8xrykgqqvuylxd
+- **链上交互（mint 1000u64）交易 ID**：`at1jnr8m9gmnjy370y06rk0j7jmeall3n64m5e230usmmwwqxvxmqxs8s2kl3`
+  - 🔗 https://testnet.explorer.provable.com/transaction/at1jnr8m9gmnjy370y06rk0j7jmeall3n64m5e230usmmwwqxvxmqxs8s2kl3
+
+### 链上交互输出
+
+mint 执行成功，生成加密 Token record：
+
+```
+ • {
+  owner: aleo1krz4qcek7f8qdhzn79xlf5m6s9hvsfwttgnfyke4fsfaj2jqsu9qwlkmhc.private,
+  amount: 1000u64.private,
+  _nonce: 5260754083144037220443259944790015072629437753554482943396051102490488412288group.public,
+  _version: 1u8.public
+}
+```
+
+余额消耗：20 credits → 15.216044 credits（部署 4.783956 + mint 0.001405）
 
 ### 部署步骤
 
@@ -123,7 +141,7 @@ leo build
 # 2. 从水龙头获取测试网 credits
 # https://faucet.aleo.org/
 
-# 3. 部署到测试网（已验证命令，待 credits 到账后执行）
+# 3. 部署到测试网
 leo deploy --private-key <PRIVATE_KEY> \
   --network testnet \
   --endpoint https://api.explorer.provable.com/v1 \
@@ -131,6 +149,8 @@ leo deploy --private-key <PRIVATE_KEY> \
 
 # 4. 执行 mint 链上交互
 leo execute mint 1000u64 \
+  --private-key <PRIVATE_KEY> \
   --network testnet \
+  --endpoint https://api.explorer.provable.com/v1 \
   --broadcast --yes
 ```
