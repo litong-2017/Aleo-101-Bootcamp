@@ -1,7 +1,142 @@
 ---
-title: Finalization Model
+title: Finalization 模型
 ---
 
-# Finalization Model
+# Finalization 模型
 
-TODO: Add Leo finalization model guide content.
+## 背景
+
+Leo 程序运行在两个不同的上下文中：
+
+- **Proof context（证明上下文）**：私有、链下执行，用来生成 ZK proofs。普通 `fn` 声明运行在这里。输入可以是私有的，计算过程不会在链上可见。
+- **Finalization context（最终化上下文）**：公开、链上执行，用来修改状态。`final { }` block 运行在这里。所有输入和操作都是公开可见的。
+
+## 管理公开状态
+
+链上数据会公开存储在三类数据结构中：`mapping`、storage variable（存储变量）和 storage vector（存储向量）。任何读取或更新这些结构状态的逻辑，都必须放在 `final { }` block 中，或者放在 `final fn` 内：
+
+```leo
+program first_public_state.aleo {
+    mapping accumulator: u8 => u64;
+    storage count: u8;
+    storage queue: [u8];
+
+    // 修改 mapping：读取当前值，计算新值，再写回链上状态。
+    fn increment_accumulator() -> Final {
+        return final {
+            let current_count: u64 = accumulator.get_or_use(0u8, 0u64); // 不存在时默认使用 0
+            let new_count: u64 = current_count + 1u64;
+            accumulator.set(0u8, new_count);
+        };
+    }
+
+    // 修改 storage variable：读取当前值，递增后写回。
+    fn increment_count() -> Final {
+        return final {
+            let current_count: u8 = count.unwrap_or(0u8); // 不存在时默认使用 0
+            count = current_count + 1u8;
+        };
+    }
+
+    // 修改 storage vector：把新值追加到队列末尾。
+    fn add_to_queue(val: u8) -> Final {
+        return final {
+            queue.push(val);
+        };
+    }
+
+    @noupgrade
+    constructor() {}
+}
+```
+
+带链上逻辑的入口函数会返回 `Final`，并把最终化代码写在内联的 `final { }` block 中。这里还有几条额外规则：
+
+- 入口函数可以在 tuple 中同时返回其他数据类型和一个 `Final`，包括 records。
+- 只能返回一个 `Final`。
+- 如果返回多个类型，`Final` 必须是 tuple 中最后一个类型。
+
+## 外部调用
+
+Leo 允许开发者调用已导入程序中的入口函数。调用一个返回 `Final` 的外部入口函数时，会得到一个 `Final` 值；它可以在 `final { }` block 中通过 `.run()` 方法组合执行：
+
+```leo
+import first_public_storage.aleo;
+
+program second_public_storage.aleo {
+    mapping hashes: u8 => scalar;
+
+    fn two_mappings(value: u8) -> Final {
+        let increment_final: Final = first_public_storage.aleo::increment();
+        return final {
+            // 先执行外部程序返回的 Final，再更新当前程序的 mapping。
+            increment_final.run();
+            let hash: scalar = BHP256::hash_to_scalar(value);
+            hashes.set(value, hash);
+        };
+    }
+
+    @noupgrade
+    constructor() {}
+}
+```
+
+上面导入的外部程序可以像这样定义：
+
+```leo
+program first_public_storage.aleo {
+    storage count: u8;
+
+    fn increment() -> Final {
+        return final {
+            // 读取公开 storage，不存在时按 0 处理，然后加 1。
+            count = count.unwrap_or(0u8) + 1u8;
+        };
+    }
+
+    @noupgrade
+    constructor() {}
+}
+```
+
+### `Final` 类型
+
+`Final` 是一种 opaque value（不透明值）：一旦生成，你只能运行它（通过 `.run()`），或者把它继续传给另一个支持 finalize 的函数。Leo 没有语法可以检查、复制、重新赋值或用其他方式操作它。
+
+编译器会强制执行这一点：函数中生成的每一个 `Final`，都必须在每条执行路径上被消费且只消费一次。
+
+如果 finalize body 需要使用调用者 proof context 中已有的值，请把这些值作为额外参数传给 finalize 调用。
+
+## Checks-Effects-Interactions（CEI）
+
+在 `final { }` block 中，状态读取、状态写入和外部调用（`.run()`）的顺序很重要。编译器会运行 **Checks-Effects-Interactions** 分析，并在顺序不合理时发出 warning：
+
+1. **Checks（检查）**：读取 `mapping`、`storage`，调用 `Mapping::get` / `Mapping::contains`，以及执行 `assert`。
+2. **Effects（影响）**：通过 `set`、`remove` 或 storage assignment 写入状态。
+3. **Interactions（交互）**：通过 `Final::run()` 执行外部 finalize。
+
+在单条执行路径中，所有 checks 和 effects 都必须发生在任何 `.run()` 调用之前。如果在 interaction 之后再执行 check 或 effect，编译器会标记 warning。原因是外部程序的 finalize 可能已经修改了你要读取或写入的状态，从而打开一类类似 reentrancy（重入）的 bug 空间。
+
+这类分析会在以下场景发出 warning，warning code 前缀为 `CEI`：
+
+- check（读取或 `assert`）在同一路径的 `.run()` 之后执行。应把它移动到 `.run()` 之前。
+- effect（状态写入）在同一路径的 `.run()` 之后执行。应把它移动到 `.run()` 之前。
+- helper finalize function 在 `.run()` 之后被调用，而这个 helper 自身会执行 checks 或 effects。应把 helper 调用提升到 `.run()` 之前。
+- loop body 同时包含 interaction 和 check 或 effect。应把 loop 拆成两轮：第一轮完成所有 checks / effects，第二轮再执行 interactions。
+
+这个 pass 还会对外部调用返回值执行 **cross-layer taint analysis（跨层污染分析）**。外部 `Final` 派生出的值，可能会在该外部 finalize 并发执行时失效。编译器会在以下情况发出 warning：
+
+- tainted value 被用在 finalize block 中。应在链上重新读取该值，而不是依赖缓存值。
+- tainted value 被作为参数传给另一个外部 finalize。应在接收方 finalize 内通过链上读取传递该值。
+
+这些 warning 是提示性的，不会阻止编译。但忽略它们通常不是正确做法。如果你确实需要这种顺序，应重构代码，让 warning 不再触发；压制 warning 应该是最后手段。
+
+## 同时管理公开状态和私有状态
+
+Records 是私有状态，可以在 proof context（入口 `fn` body）中创建或消费，但不能在 `final { }` blocks 或 `final fn` 中创建或消费。Finalization context 纯粹在链上运行，只能访问公开链上状态。
+
+| | **Public State（公开状态）** | **Private State（私有状态）** |
+| --- | --- | --- |
+| **运行位置** | `final { }` block | 入口 `fn` body |
+| **数据存储** | `mapping`、`storage` | `record` |
+| **可见性** | 所有人可见 | 拥有 `view key` 时可见 |
