@@ -100,7 +100,7 @@
 | [task1](./task/task1.md) | 1. 为什么需要隐私？       | ¥6       | 5月17日24:00:00(UTC+8) | [奖励发放记录](./reward/task1_bounty.md)  |
 | [task2](./task/task2.md) | 2. Leo 入门：学会这门语言 | ¥12      | 5月24日24:00:00(UTC+8) | [奖励发放记录](./reward/task2_bounty.md)  |
 | [task3](./task/task3.md) | 3. 建起来：从程序到 dApp  | ¥15      | 5月31日24:00:00(UTC+8) |[奖励发放记录](./reward/task3_bounty.md)   |
-| [task4](./task/task4.md) | 4. 用起来：真实场景落地   | ¥20      | 6月07日24:00:00(UTC+8) |              |
+| [task4](./task/task4.md) | 4. 用起来：真实场景落地   | ¥20      | 6月07日24:00:00(UTC+8) | [奖励发放记录](./reward/task4_bounty.md) |
 
 完成所有 Task 可直通 Aleo Hackathon，获得官方深度指导与生态机会。
 
