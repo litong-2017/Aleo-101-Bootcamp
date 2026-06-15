@@ -1,0 +1,6 @@
+- 昵称：doggiek
+- GitHub 用户名：DoggieK
+- 微信：KaterinaZhouCY
+- Aleo 钱包地址：aleo1cu2vt864uwyuemmq9ry0uclvn5xx8ll3mn2smwr6hujdfx72wcrqs3vka0
+- 技术栈：Java、Go、MySQL、Redis、React、Vue、AI Agent、Web3、Solana
+- 自我介绍：全栈开发者，正在探索 AI × Web3 领域。
