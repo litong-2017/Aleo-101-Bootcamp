@@ -1,7 +1,179 @@
 ---
-title: Standard Operations
+title: 标准操作
 ---
 
-# Standard Operations
+# 标准操作
 
-TODO: Add Aleo Instructions standard operations content.
+这些操作可用于 `function`、`closure` 和 `finalize` 块中；唯一例外是 `async`，它只能出现在函数作用域内。
+
+## 算术操作
+
+| 操作码 | 元数 | 支持的类型 | 描述 |
+| --- | --- | --- | --- |
+| `abs` | 一元 | I8-I128 | 绝对值，溢出时中止执行 |
+| `abs.w` | 一元 | I8-I128 | 绝对值，回绕处理 |
+| `add` | 二元 | Field, Group, I8-I128, U8-U128, Scalar | 加法，溢出时中止执行 |
+| `add.w` | 二元 | I8-I128, U8-U128 | 加法，回绕处理 |
+| `div` | 二元 | Field, I8-I128, U8-U128 | 除法，溢出或除以零时中止执行 |
+| `div.w` | 二元 | I8-I128, U8-U128 | 除法，回绕处理 |
+| `double` | 一元 | Field, Group | 对输入加倍 |
+| `inv` | 一元 | Field | 乘法逆元，输入为零时中止执行 |
+| `mod` | 二元 | U8-U128 | 模运算，除以零时中止执行 |
+| `mul` | 二元 | Field, Group x Scalar, Scalar x Group, I8-I128, U8-U128 | 乘法，溢出时中止执行 |
+| `mul.w` | 二元 | I8-I128, U8-U128 | 乘法，回绕处理 |
+| `neg` | 一元 | Field, Group, I8-I128 | 取负，溢出时中止执行 |
+| `pow` | 二元 | Field, (I8-I128) x (U8/U16/U32), (U8-U128) x (U8/U16/U32) | 幂运算，溢出时中止执行 |
+| `pow.w` | 二元 | (I8-I128) x (U8/U16/U32), (U8-U128) x (U8/U16/U32) | 幂运算，回绕处理 |
+| `rem` | 二元 | I8-I128, U8-U128 | 余数运算，溢出或除以零时中止执行 |
+| `rem.w` | 二元 | I8-I128, U8-U128 | 余数运算，回绕处理 |
+| `shl` | 二元 | (I8-I128) x (U8/U16/U32), (U8-U128) x (U8/U16/U32) | 左移，超出边界时中止执行 |
+| `shl.w` | 二元 | (I8-I128) x (U8/U16/U32), (U8-U128) x (U8/U16/U32) | 左移，回绕处理 |
+| `shr` | 二元 | (I8-I128) x (U8/U16/U32), (U8-U128) x (U8/U16/U32) | 右移，超出边界时中止执行 |
+| `shr.w` | 二元 | (I8-I128) x (U8/U16/U32), (U8-U128) x (U8/U16/U32) | 右移，回绕处理 |
+| `square` | 一元 | Field | 对输入求平方 |
+| `sqrt` | 一元 | Field | 平方根，输入为非二次剩余时中止执行 |
+| `sub` | 二元 | Field, Group, I8-I128, U8-U128 | 减法，溢出时中止执行 |
+| `sub.w` | 二元 | I8-I128, U8-U128 | 减法，回绕处理 |
+
+## 逻辑与位运算
+
+| 操作码 | 元数 | 支持的类型 | 描述 |
+| --- | --- | --- | --- |
+| `and` | 二元 | Boolean, I8-I128, U8-U128 | 按位 AND；对布尔值表示逻辑 AND |
+| `nand` | 二元 | Boolean | 两个操作数都为 `true` 时返回 `false` |
+| `nor` | 二元 | Boolean | 两个操作数都不为 `true` 时返回 `true` |
+| `not` | 一元 | Boolean, I8-I128, U8-U128 | 按位 NOT；对布尔值表示逻辑 NOT |
+| `or` | 二元 | Boolean, I8-I128, U8-U128 | 按位 OR |
+| `xor` | 二元 | Boolean, I8-I128, U8-U128 | 按位 XOR |
+
+## 比较操作
+
+| 操作码 | 元数 | 支持的类型 | 目标类型 |
+| --- | --- | --- | --- |
+| `gt` | 二元 | Field, I8-I128, U8-U128, Scalar | Boolean |
+| `gte` | 二元 | Field, I8-I128, U8-U128, Scalar | Boolean |
+| `lt` | 二元 | Field, I8-I128, U8-U128, Scalar | Boolean |
+| `lte` | 二元 | Field, I8-I128, U8-U128, Scalar | Boolean |
+| `is.eq` | 二元 | 任意相同类型 | Boolean |
+| `is.neq` | 二元 | 任意相同类型 | Boolean |
+
+## 断言
+
+| 操作码 | 描述 |
+| --- | --- |
+| `assert.eq` | 操作数不相等时中止执行 |
+| `assert.neq` | 操作数相等时中止执行 |
+
+支持所有可比较类型，包括 Address、Boolean、Field、Group、整数、Scalar、Signature、Struct 和 Record。
+
+## 控制流
+
+| 操作码 | 描述 |
+| --- | --- |
+| `call` | 调用 closure 或外部函数 |
+| `call.dynamic` | 根据 program/network/function 字段动态调用函数 *(V14)* |
+| `async` | 为 finalize 执行生成 future，参见 [Futures](https://docs.aleo.org/build/aleo-instructions/reference/programs#futures)。仅限函数作用域。 |
+| `ternary` | 根据布尔条件选择第一个值或第二个值 |
+
+```aleo
+call foo.aleo/bar r0 into r1;
+
+ternary r0 r1 r2 into r3;   // if r0 then r1 else r2
+```
+
+## 类型转换
+
+| 操作码 | 描述 |
+| --- | --- |
+| `cast` | 将操作数转换为声明的类型 |
+| `cast.lossy` | 对整数转换执行可能丢失高位信息的截断转换 |
+
+`cast` 支持所有基础类型之间的转换，也支持由组件值组装 struct、record 和 array。特殊目标类型 `group.x` 与 `group.y` 用于从 group 元素中提取坐标。
+
+## 序列化
+
+*在 Consensus V11 中加入。*
+
+| 操作码 | 描述 |
+| --- | --- |
+| `serialize.bits` | 将值序列化为布尔数组（Aleo 变体编码） |
+| `serialize.bits.raw` | 将值序列化为布尔数组（原始位编码） |
+| `deserialize.bits` | 将布尔数组反序列化为值（Aleo 变体编码） |
+| `deserialize.bits.raw` | 将布尔数组反序列化为值（原始位编码） |
+
+## 动态分发
+
+*在 Consensus V14 中加入（[ARC-0009](https://vote.aleo.org/p/arc-0009)）。*
+
+动态分发允许程序调用运行时才确定的函数，从而支持接口模式、可插拔库和可组合协议。
+
+### `call.dynamic`
+
+调用一个在运行时解析目标的函数。
+
+```aleo
+call.dynamic <PROG> <NET> <FUN> with <INPUTS> (as <INPUT_TYPES>) into <OUTPUTS> (as <OUTPUT_TYPES>);
+```
+
+标识符可以写成带引号的字面量（`'credits'`、`'aleo'`、`'transfer_public'`），这些字面量会被视为 field 元素。也可以使用 `field` 类型的变量。
+
+```aleo
+program token_router.aleo;
+
+
+
+// 将转账路由到任意兼容的 token 程序
+
+function route_transfer:
+
+    input r0 as field.public;          // token 程序名称
+
+    input r1 as address.public;        // 接收方
+
+    input r2 as u64.public;            // 金额
+
+    call.dynamic r0 'aleo' 'transfer' with r1 r2 (as address.public u64.public) into r3 (as future.dynamic);
+
+    async route_transfer r3 into r4;
+
+    output r4 as token_router.aleo/route_transfer.future;
+
+
+
+finalize route_transfer:
+
+    input r0 as future.dynamic;
+
+    await r0;
+```
+
+**允许的类型：**
+
+| 位置 | 允许 | 不允许 |
+| --- | --- | --- |
+| 输入 | Plaintext 类型、`record.dynamic` | `record`、外部 record、`future`、`future.dynamic` |
+| 输出 | Plaintext 类型、`record.dynamic`、`future.dynamic` | `record`、外部 record、`future` |
+
+**限制：**
+
+- `call.dynamic` 只能出现在函数体中，不能出现在 finalize 块中。
+- 目标 program、network 和 function 都是 **public** circuit 输入。不要使用私有数据选择调用目标，因为目标对外可观察。
+- 动态目标不能在运行时从链上 mapping 中解析。调用方需要把目标作为输入传入（通常在链下查询得到），finalize 逻辑可以根据已存储的值验证这些目标。
+
+**类型转换规则：** 当 `record.dynamic` 传给期望静态 record 的被调用方时，或反过来将静态 record 传给期望 `record.dynamic` 的被调用方时，AVM 会自动运行一个转换电路，用来证明两种表示之间的一致性。
+
+### 动态 Record 访问
+
+| 操作码 | 描述 |
+| --- | --- |
+| `get.record.dynamic` | 通过验证 Merkle proof，证明指定名称的字段以指定类型存在，并从 `record.dynamic` 中取出该字段 |
+
+```aleo
+get.record.dynamic r0.microcredits into r1 as u64;
+
+get.record.dynamic r0.metadata into r2 as [u8; 32u32];
+```
+
+如果字段不存在或类型不兼容，Merkle proof 会验证失败，执行会回滚。这个机制会强制形成隐式 record 接口：只要某个 record 包含所需字段，就会满足检查要求，而不管该 record 最初由哪个程序定义。
+
+`owner` 字段可直接访问，无需 Merkle 验证：`r0.owner`。
