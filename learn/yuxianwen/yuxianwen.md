@@ -1,0 +1,6 @@
+- 昵称：yuxianwen
+- GitHub 用户名：yuxianwen
+- 微信：yuxianwen1207
+- Aleo 钱包地址：aleo1krz4qcek7f8qdhzn79xlf5m6s9hvsfwttgnfyke4fsfaj2jqsu9qwlkmhc
+- 技术栈：JavaScript / TypeScript / Solidity / Rust
+- 自我介绍：Web3 开发者，对零知识证明和隐私计算感兴趣，希望通过 Aleo Bootcamp 深入学习 Leo 语言和 ZK 应用开发。

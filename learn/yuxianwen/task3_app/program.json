@@ -1,0 +1,6 @@
+{
+  "program": "yuxianwen_token.aleo",
+  "version": "0.0.0",
+  "description": "A privacy-preserving token built with Leo on Aleo",
+  "license": "MIT"
+}
