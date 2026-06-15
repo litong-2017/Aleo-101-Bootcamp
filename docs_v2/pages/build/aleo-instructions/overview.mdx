@@ -2,6 +2,48 @@
 title: Overview
 ---
 
-# Overview
+# Aleo Instructions
 
-TODO: Add Aleo Instructions overview content.
+Aleo Instructions（Aleo 指令集）是由 Aleo 虚拟机（AVM）执行的低级、类汇编语言。所有的 Leo 程序都会先编译为 Aleo 指令，随后再被编译为 AVM 字节码。
+
+## 什么是Aleo使用说明
+
+Aleo 程序是带有 `.aleo` 扩展名的文件，其中包含 Aleo 指令 —— 这是一种基于寄存器、静态类型的指令集。每条指令都在带类型的寄存器（`r0`，`r1` 等）上进行操作，并产生可通过零知识证明进行验证的确定性输出。
+
+```bash
+program hello.aleo;
+
+function main:
+    input r0 as u32.public;
+    input r1 as u32.private;
+    add r0 r1 into r2;
+    output r2 as u32.private;
+```
+
+## 什么时候去使用
+
+大多数开发者应当使用 Leo 语言来编写程序，它提供了更高级的语法以及开发者所熟悉的编程结构。而在以下场景中，使用 Aleo 指令集会非常有帮助：
+
+- 细粒度的电路控制 —— 直接管理寄存器和约束（constraints）以进行性能优化。
+- 编译器开发 —— 开发一个能够将非 Leo 语言编译为 Aleo 虚拟机目标的编译器。
+- 调试 —— 阅读 Leo 程序编译后的输出内容，以理解虚拟机具体执行了什么。
+- 理解虚拟机 —— 学习 Aleo 虚拟机如何在最底层处理程序。
+
+## 编译流程
+
+编译流程为：
+
+```bash
+Leo source (.leo) → Aleo Instructions (.aleo) → AVM bytecode (.avm)
+```
+当程序被构建（Build）时，每个函数都会生成：
+
+- 一个用于生成零知识证明的证明者文件`（.prover）`。
+- 一个用于验证证明的验证者文件`（.verifier）`。
+- 针对整个程序的一个单一字节码文件`（main.avm）`。
+
+## 下一步
+
+- 参考指南 —— 完整的语言规范和操作码（opcode）参考。
+- Leo 语言 —— 编写 Aleo 程序所推荐的高级语言文档。
+- ABNF 文法 —— Aleo 指令集的规范文法定义（格式化文法规范）。
