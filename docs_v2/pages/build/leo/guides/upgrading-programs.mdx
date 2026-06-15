@@ -2,6 +2,239 @@
 title: Upgrading Programs
 ---
 
-# Upgrading Programs
+# Leo 可升级性开发者指南
 
-TODO: Add Leo upgrading programs guide content.
+本指南面向使用 Leo 语言的开发者，提供 Aleo 程序可升级性框架的实践性概览。你将了解如何配置程序、实现常见升级模式，并遵循安全、可维护应用的最佳实践。
+
+有关底层协议的更多细节，可参考 Aleo 的程序可升级性文档。
+
+## 入门：升级策略
+
+程序的升级策略由 Leo 程序中 `constructor` 上的注解定义。Leo 编译器会读取该注解来理解你的意图，并生成相应的底层代码。
+
+主要有四种升级模式：
+
+| 模式         | 说明                                                       |
+| ------------ | ---------------------------------------------------------- |
+| `@noupgrade` | 程序不可升级。                                             |
+| `@admin`     | 升级由一个硬编码的单一管理员地址控制。                     |
+| `@checksum`  | 升级由链上 checksum 管理，通常由单独的程序控制，例如 DAO。 |
+| `@custom`    | 你需要在 `constructor` 中从零开始编写完整的升级逻辑。      |
+
+## 核心机制
+
+可升级性主要围绕一个特殊的 `constructor` 函数和链上程序元数据展开。
+
+### `constructor`
+
+`constructor` 是一个特殊函数，会在每次部署和升级时于链上运行。可以将它理解为程序的“守门人”。
+
+与可升级性相关，`constructor` 有两个关键属性：
+
+- **基础性**：所有程序都必须带有 `constructor` 才能部署。如果 `constructor` 逻辑失败，例如某个 `assert` 失败，整个部署或升级交易都会被拒绝。
+- **不可变性**：`constructor` 中的逻辑会在首次部署时固定下来，之后的升级永远无法修改它。如果这里引入 bug，该 bug 将永久存在，因此必须认真审计 constructor。
+
+### 程序元数据操作数
+
+在 `constructor` 中，可以使用 `self` 关键字访问程序的链上元数据。
+
+| 操作数               | Leo 类型   | 说明                                                                  |
+| -------------------- | ---------- | --------------------------------------------------------------------- |
+| `self.edition`       | `u16`      | 程序的版本号。从 `0` 开始，每次升级递增 `1`。edition 由网络自动跟踪。 |
+| `self.program_owner` | `address`  | 提交部署交易的地址。                                                  |
+| `self.checksum`      | `[u8, 32]` | 程序的 checksum，是程序代码的唯一标识符。                             |
+
+你也可以通过程序名限定操作数来引用其他程序的元数据，例如 `Program::edition(credits.aleo)`、`Program::program_owner(foo.aleo)`。要使用这种语法，需要先在 Leo 文件中导入相应程序。
+
+注意：在可升级性功能启用前部署的程序，即使用 Leo 版本低于 v3.1.0 部署的程序，没有 `program_owner`。尝试访问该字段会导致运行时错误。
+
+---
+
+## Leo 中的升级模式
+
+下面列出 Leo 中几种常见的升级模式。
+
+也可以参考可运行的 Leo 示例。
+
+### 模式 1：不可升级
+
+**目标：** 明确阻止未来所有升级。
+
+**`main.leo`**
+
+Leo 编译器会自动生成一个 constructor，将程序锁定在初始版本。
+
+```leo id="m9r6wc"
+// The 'noupgrade_example' program.
+program noupgrade_example.aleo {
+    // This constructor is for the "noupgrade" mode.
+    // It is immutable and prevents any future upgrades.
+    @noupgrade
+    constructor() {
+        // The Leo compiler automatically generates the constructor logic.
+    }
+
+    fn main(public a: u32, b: u32) -> u32 {
+        let c: u32 = a + b;
+        return c;
+    }
+}
+```
+
+对应的 AVM 代码为：
+
+```text id="2h3mga"
+constructor:
+    assert.eq edition 0u16
+```
+
+### 模式 2：管理员驱动升级
+
+**目标：** 将升级权限限制给一个硬编码的单一管理员地址。
+
+**`main.leo`**
+
+```leo id="pvuzg4"
+// The 'admin_example' program.
+program admin_example.aleo {
+    // This constructor is for the "admin" mode.
+    // It ensures that only the designated admin can upgrade the program.
+    @admin(address="aleo1rhgdu77hgyqd3xjj8ucu3jj9r2p3lam3tc3h0nvv2d3k0rp2ca5sqsceh7")
+    constructor() {
+        // The Leo compiler automatically generates the constructor logic.
+    }
+
+    fn main(public a: u32, b: u32) -> u32 {
+        let c: u32 = a + b;
+        return c;
+    }
+}
+```
+
+对应的 AVM 代码为：
+
+```text id="m9pbjv"
+constructor:
+    assert.eq program_owner aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px;
+```
+
+### 模式 3：Checksum 驱动升级（投票示例）
+
+**目标：** 将升级权限委托给一个独立的治理程序，由该程序管理已批准代码 checksum 列表。
+
+**`main.leo`**
+
+编译器会使用 `mapping` 和 `key` 字段生成 constructor，并从 `basic_voting.aleo` 程序中查找已批准的 checksum。
+
+```leo id="v6hnby"
+// The 'vote_example' program.
+program vote_example.aleo {
+    // This constructor is for the "checksum" mode.
+    @checksum(mapping="basic_voting.aleo::approved_checksum", key="true")
+    constructor() {
+        // The Leo compiler automatically generates the constructor logic.
+    }
+
+    fn main(public a: u32, b: u32) -> u32 {
+        let c: u32 = a + b;
+        return c;
+    }
+}
+```
+
+对应的 AVM 代码为：
+
+```text id="f7f8nu"
+constructor:
+    branch.eq edition 0u16 to end;
+    get basic_voting.aleo/approved_checksum[true] into r0;
+    assert.eq checksum r0;
+    position end;
+```
+
+### 模式 4：自定义逻辑（时间锁示例）
+
+**目标：** 在允许升级前强制设置一段时间延迟。由于没有预定义模式可以直接实现这一点，因此需要自行编写升级策略。
+
+**`main.leo`**
+
+使用 `@custom` constructor 时，你需要自己负责完整编写 constructor 逻辑。
+
+```leo id="vfc8z7"
+// The 'timelock_example' program.
+program timelock_example.aleo {
+    @custom
+    constructor() {
+        // For upgrades (edition > 0), enforce a block height condition on when the constructor can be called successfully
+        if self.edition > 0u16 {
+            assert(block.height >= 1300u32);
+        }
+    }
+
+    fn main(public a: u32, b: u32) -> u32 {
+        let c: u32 = a + b;
+        return c;
+    }
+}
+```
+
+对应的 AVM 代码为：
+
+```text id="ac94b1"
+constructor:
+    gt edition 0u16 into r0;
+    branch.eq r0 false to end_then_0_0;
+    gte block.height 1300u32 into r1;
+    assert.eq r1 true;
+    branch.eq true true to end_otherwise_0_1;
+    position end_then_0_0;
+    position end_otherwise_0_1;
+```
+
+---
+
+## 规则：哪些可以改，哪些不能改
+
+协议会强制执行严格规则，以确保升级不会破坏依赖应用，也不会损坏已有状态。
+
+升级**可以**：
+
+- 修改现有入口 `fn` 函数体和 `final { }` 块中的内部逻辑。
+- 新增 `struct`、`record`、`mapping` 和 `fn` 声明。
+
+升级**不能**：
+
+- 修改任何现有入口 `fn` 的输入或输出签名。
+- 修改或删除任何现有 `struct`、`record` 或 `mapping`。
+- 删除任何现有程序组件。
+
+| 程序组件                    | 删除 |       修改 | 新增 |
+| --------------------------- | ---: | ---------: | ---: |
+| `import`                    |   ❌ |         ❌ |   ✅ |
+| `struct`                    |   ❌ |         ❌ |   ✅ |
+| `record`                    |   ❌ |         ❌ |   ✅ |
+| `mapping`                   |   ❌ |         ❌ |   ✅ |
+| inlined `fn`，即 helper     |   ✅ |         ✅ |   ✅ |
+| non-inlined `fn`，即 helper |   ❌ |         ❌ |   ✅ |
+| `fn`，入口函数              |   ❌ | ✅（逻辑） |   ✅ |
+| `final fn`，入口函数        |   ❌ | ✅（逻辑） |   ✅ |
+| `constructor`               |   ❌ |         ❌ |   ❌ |
+
+---
+
+## 安全检查清单
+
+程序可变性会引入新的风险。需要注意以下几点：
+
+- **重点审计 `constructor`。** 它的逻辑是永久性的，部署后无法修复。
+- **优先选择多签或 DAO 治理，而不是单一管理员。** 单点故障风险较高。
+- **为重大升级实现时间锁。** 给用户留出反应窗口有助于建立信任。
+- **为“固化”做好规划。** 提供一种使程序变为不可变的方式，例如将管理员权限转移到销毁地址，从而给予用户长期确定性。
+
+## 旧版程序
+
+如果你的程序是在可升级性功能启用前部署的，或者任何未带 `constructor` 部署的程序：
+
+**它将永久不可升级。**
+
+不存在将旧版程序迁移为可升级程序的路径。如果需要添加新功能，必须部署一个全新的程序，并让用户迁移到新程序。

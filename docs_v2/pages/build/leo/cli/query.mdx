@@ -2,6 +2,334 @@
 title: Query
 ---
 
-# Query
+# `leo query`
 
-TODO: Add Leo CLI query content.
+`leo query` 命令用于从支持标准 `snarkOS` 端点的网络中获取数据。
+
+## 子命令
+
+- `block` - 查询区块信息。
+- `transaction` - 查询交易信息。
+- `program` - 查询程序源代码和实时 mapping 值。
+- `stateroot` - 查询最新的 stateroot。
+- `committee` - 查询当前委员会。
+- `mempool` - 查询内存池中的交易和 transmissions。
+- `peers` - 查询节点对等方信息。
+
+---
+
+## `leo query block`
+
+要从给定网络中获取区块，请运行以下命令：
+
+```bash
+leo query <ID>
+```
+
+其中，`<ID>` 可以是指定的区块高度，也可以是区块哈希。区块将以 JSON 格式返回。
+
+例如，你可以通过运行以下任意一个命令来获取 Mainnet 创世区块：
+
+```bash
+leo query block 0 --network mainnet --endpoint https://api.explorer.provable.com/v1
+```
+
+```bash
+leo query block ab1sm6kyqle2ftg4z8gegafqrjy0jwjhzu6fmy73726dgszrtxhxvfqha0eee --network mainnet --endpoint https://api.explorer.provable.com/v1
+```
+
+### Flags:
+
+#### `--network <NETWORK>`
+
+指定要部署到的网络。会覆盖手动设置或在 `.env` 文件中设置的任何 `NETWORK` 环境变量。有效的网络名称为 `testnet`、`mainnet` 和 `canary`。
+
+#### `--endpoint <ENDPOINT>`
+
+要部署到的端点。会覆盖手动设置或在 `.env` 文件中设置的任何 `ENDPOINT` 环境变量。
+
+#### `--latest`
+
+#### `-l`
+
+查询最新区块。
+
+示例：
+
+```bash
+leo query block --latest
+```
+
+#### `--latest-hash`
+
+查询最新区块的哈希。
+
+示例：
+
+```bash
+leo query block --latest-hash
+```
+
+#### `--latest-height`
+
+查询最新区块的高度。
+
+示例：
+
+```bash
+leo query block --latest-height
+```
+
+#### `--range <START_HEIGHT> <END_HEIGHT>`
+
+#### `-r <START_HEIGHT> <END_HEIGHT>`
+
+查询最多 50 个连续区块。
+
+示例：
+
+```bash
+leo query block --range <START_HEIGHT> <END_HEIGHT>
+```
+
+#### `--transactions`
+
+#### `-t`
+
+查询指定区块高度上的所有交易。
+
+示例：
+
+```bash
+leo query block <BLOCK_HEIGHT> --transactions
+```
+
+#### `--to-height`
+
+查询与某个哈希值对应的区块高度。
+
+示例：
+
+```bash
+leo query block <BLOCK_HASH> --to-height
+```
+
+[返回顶部](#子命令)
+
+---
+
+## `leo query transaction`
+
+要从给定网络中获取某个特定交易，请运行以下命令：
+
+```bash
+leo query transaction <ID>
+```
+
+其中，`<ID>` 是交易 ID。交易将以 JSON 格式返回。
+
+### Flags:
+
+#### `--network <NETWORK>`
+
+指定要部署到的网络。会覆盖手动设置或在 `.env` 文件中设置的任何 `NETWORK` 环境变量。有效的网络名称为 `testnet`、`mainnet` 和 `canary`。
+
+#### `--endpoint <ENDPOINT>`
+
+要部署到的端点。会覆盖手动设置或在 `.env` 文件中设置的任何 `ENDPOINT` 环境变量。
+
+#### `--confirmed`
+
+#### `-c`
+
+如果查询的交易已确认，则返回该交易的信息，包括链上执行的详细信息。
+
+#### `--unconfirmed`
+
+#### `-u`
+
+查询原始的、未确认的交易。
+
+#### `--from-io <INPUT_OR_OUTPUT_ID>`
+
+获取某个 input 或 output ID 所在交易的 ID。
+
+示例：
+
+```bash
+leo query transaction --from-io <INPUT_OR_OUTPUT_ID>
+```
+
+#### `--from-transition <TRANSITION_ID>`
+
+获取包含指定 transition 的交易 ID。
+
+示例：
+
+```bash
+leo query transaction --from-transition <TRANSITION_ID>
+```
+
+#### `--from-program <PROGRAM_NAME>`
+
+获取指定程序被部署时所在交易的 ID。
+
+示例：
+
+```bash
+leo query transaction --from-program <PROGRAM_NAME>
+```
+
+[返回顶部](#子命令)
+
+---
+
+## `leo query program`
+
+要从给定网络中获取某个特定程序，请运行以下命令：
+
+```bash
+leo query program <PROGRAM_NAME>
+```
+
+你也可以使用此命令查询给定程序中的特定 mappings 和 mapping values。例如，如果你想查询你的 Aleo credits 公开余额：
+
+```bash
+leo query program credits.aleo --mapping-value account <YOUR_ADDRESS>
+```
+
+### Flags:
+
+#### `--network <NETWORK>`
+
+指定要部署到的网络。会覆盖手动设置或在 `.env` 文件中设置的任何 `NETWORK` 环境变量。有效的网络名称为 `testnet`、`mainnet` 和 `canary`。
+
+#### `--endpoint <ENDPOINT>`
+
+要部署到的端点。会覆盖手动设置或在 `.env` 文件中设置的任何 `ENDPOINT` 环境变量。
+
+#### `--mappings`
+
+列出程序最新部署版本中定义的所有 mappings。
+
+#### `--mapping-value <MAPPING> <KEY>`
+
+获取指定 mapping 和 key 对应的值。如果 key 不存在于 mapping 中，将返回 `null`。
+
+#### `--edition <EDITION>`
+
+获取程序源代码时可选查询的 edition。如果未指定，将使用最新 edition。
+
+程序的 edition 在初次部署时设置为 `0`，并且每次程序升级时递增 `1`。更多详细信息请参见 **Upgrading Programs** 指南。
+
+[返回顶部](#子命令)
+
+---
+
+## `leo query stateroot`
+
+该命令查询给定网络的最新 stateroot。
+
+### Flags:
+
+#### `--network <NETWORK>`
+
+指定要部署到的网络。会覆盖手动设置或在 `.env` 文件中设置的任何 `NETWORK` 环境变量。有效的网络名称为 `testnet`、`mainnet` 和 `canary`。
+
+#### `--endpoint <ENDPOINT>`
+
+要部署到的端点。会覆盖手动设置或在 `.env` 文件中设置的任何 `ENDPOINT` 环境变量。
+
+[返回顶部](#子命令)
+
+---
+
+## `leo query committee`
+
+该命令查询给定网络的当前验证者委员会。
+
+### Flags:
+
+#### `--network <NETWORK>`
+
+指定要部署到的网络。会覆盖手动设置或在 `.env` 文件中设置的任何 `NETWORK` 环境变量。有效的网络名称为 `testnet`、`mainnet` 和 `canary`。
+
+#### `--endpoint <ENDPOINT>`
+
+要部署到的端点。会覆盖手动设置或在 `.env` 文件中设置的任何 `ENDPOINT` 环境变量。
+
+[返回顶部](#子命令)
+
+---
+
+## `leo query mempool`
+
+该命令查询给定网络中某个节点内存池里的交易和 transmissions。
+
+> 注意
+> 该命令只能使用自定义端点运行。使用官方 Provable API 端点将会失败。
+
+查询交易：
+
+```bash
+leo query mempool --transactions
+```
+
+查询 transmissions：
+
+```bash
+leo query mempool --transmissions
+```
+
+### Flags:
+
+#### `--transactions`
+
+查询内存池中的交易。
+
+#### `--transmissions`
+
+查询内存池中的交易。
+
+#### `--network <NETWORK>`
+
+指定要部署到的网络。会覆盖手动设置或在 `.env` 文件中设置的任何 `NETWORK` 环境变量。有效的网络名称为 `testnet`、`mainnet` 和 `canary`。
+
+#### `--endpoint <ENDPOINT>`
+
+要部署到的端点。会覆盖手动设置或在 `.env` 文件中设置的任何 `ENDPOINT` 环境变量。
+
+[返回顶部](#子命令)
+
+---
+
+## `leo query peers`
+
+该命令查询给定网络中某个节点的对等方信息。
+
+> 注意
+> 该命令只能使用自定义端点运行。使用官方 Provable API 端点将会失败。
+
+### Flags:
+
+#### `--metrics`
+
+#### `-m`
+
+查询所有 peer metrics。
+
+#### `--count`
+
+#### `-c`
+
+查询所有参与 peers 的数量。
+
+#### `--network <NETWORK>`
+
+指定要部署到的网络。会覆盖手动设置或在 `.env` 文件中设置的任何 `NETWORK` 环境变量。有效的网络名称为 `testnet`、`mainnet` 和 `canary`。
+
+#### `--endpoint <ENDPOINT>`
+
+要部署到的端点。会覆盖手动设置或在 `.env` 文件中设置的任何 `ENDPOINT` 环境变量。
+
+[返回顶部](#子命令)

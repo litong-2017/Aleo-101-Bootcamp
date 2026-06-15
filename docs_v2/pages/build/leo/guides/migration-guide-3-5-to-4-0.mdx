@@ -2,6 +2,462 @@
 title: Migration Guide (3.5 -> 4.0)
 ---
 
-# Migration Guide (3.5 -> 4.0)
+# 从 Leo 3.5 迁移到 4.0
 
-TODO: Add Leo migration guide content.
+Leo 4.0 重新设计了语言表层，使 Leo 的**执行模型**更加透明。每个 Leo 程序都运行在两个不同的上下文中：**证明上下文**（私有、链下、生成 ZK 证明）和 **Finalization 上下文**（公开、链上、修改状态）。旧关键词 `transition`、`function`、`async`、`Future` 会模糊这种区别；4.0 使用一组更简洁的关键词（`fn`、`final`、`Final`）替代它们，使每个函数的执行上下文更加清晰。`program {}` 代码块现在明确用于定义程序的公共接口。
+
+本指南涵盖所有破坏性变更，并说明如何更新代码。
+
+## 快速参考
+
+| 3.5 语法                           | 4.0 语法                                 |
+| ---------------------------------- | ---------------------------------------- |
+| `transition foo()`                 | `fn foo()`（位于 `program {}` 内）       |
+| `async transition foo() -> Future` | `fn foo() -> Final`                      |
+| `function foo()`                   | `fn foo()`（位于 `program {}` 外）       |
+| `async function foo()`             | `final { ... }` 代码块                   |
+| `inline foo()`                     | `fn foo()`（位于 `program {}` 外）       |
+| `Future` 类型                      | `Final`                                  |
+| `async { ... }`                    | `final { ... }`                          |
+| `f.await()`                        | `f.run()`                                |
+| `@test script foo()`               | `@test fn foo()`（位于 `program {}` 内） |
+| `async constructor()`              | `constructor()`                          |
+| `foo.aleo/bar`                     | `foo.aleo::bar`                          |
+
+## 函数声明关键词
+
+整个函数关键词体系已统一为 `fn`。函数所在的位置以及所携带的修饰符共同决定其角色。
+
+### `transition` 变为 `fn`
+
+在 3.5 中，入口点使用 `transition` 声明：
+
+```leo
+// 3.5
+program test.aleo {
+    transition mint(public amount: u64) -> Token {
+        return Token { owner: self.caller, amount: amount };
+    }
+}
+```
+
+在 4.0 中，在 `program {}` 代码块内使用 `fn`：
+
+```leo
+// 4.0
+program test.aleo {
+    fn mint(public amount: u64) -> Token {
+        return Token { owner: self.caller, amount: amount };
+    }
+}
+```
+
+### `function` 变为 `fn`（位于 `program {}` 外）
+
+在 3.5 中，辅助函数位于 `program {}` 代码块内，并使用 `function` 关键词：
+
+```leo
+// 3.5
+program test.aleo {
+    function helper(a: u32, b: u32) -> u32 {
+        return a + b;
+    }
+
+    transition mint(public amount: u64) -> u64 {
+        return helper(amount, 1u32);
+    }
+}
+```
+
+在 4.0 中，辅助函数移到 `program {}` 代码块**外部**，因为该代码块现在用于定义程序的公共接口（入口点、records、mappings）。辅助函数属于内部实现，不是接口的一部分：
+
+```leo
+// 4.0
+fn helper(a: u32, b: u32) -> u32 {
+    return a + b;
+}
+
+program test.aleo {
+    fn mint(public amount: u64) -> u64 {
+        return helper(amount, 1u32);
+    }
+}
+```
+
+### `inline` 变为 `fn`
+
+在 3.5 中，辅助函数使用 `inline` 关键词（无论位于 `program {}` 内还是外）。在 4.0 中，`inline` 被移除，所有辅助函数都改为 `fn`，原本位于 program 块内的辅助函数需要移到外部：
+
+```leo
+// 3.5
+program test.aleo {
+    inline helper() -> u32 {
+        return 42u32;
+    }
+
+    transition mint() -> u32 {
+        return helper();
+    }
+}
+```
+
+```leo
+// 4.0
+fn helper() -> u32 {
+    return 42u32;
+}
+
+program test.aleo {
+    fn mint() -> u32 {
+        return helper();
+    }
+}
+```
+
+## `program` 代码块作为接口边界
+
+在 3.5 中，所有声明——transitions、functions、structs、mappings——都位于 `program {}` 代码块内。在 4.0 中，`program {}` 代码块定义程序的**公共接口**：入口点、records、mappings 和链上可见的 storage。其他内容都移到外部：
+
+| 位于 `program {}` 内 | 位于 `program {}` 外 |
+| -------------------- | -------------------- |
+| 入口点 `fn` 声明     | 辅助 `fn` 定义       |
+| `record` 定义        | `final fn` 定义      |
+| `mapping` 声明       | `struct` 定义        |
+|                      | `interface` 定义     |
+
+这种分离让开发者可以一眼看出程序在链上暴露了什么。支持实现但不属于链上接口的辅助函数和类型，应放在模块级别。
+
+## Async/Finalize 迁移为 Final
+
+async/finalize 模式——即更新公共链上状态的机制——已经围绕 `final` 关键词重新设计。
+
+### 核心概念
+
+Leo 程序运行在两个不同的上下文中：
+
+- **证明上下文**：私有的链下执行，用于生成 ZK 证明。常规 `fn` 声明在这里运行。输入可以是私有的，计算过程在链上不可见。
+- **Finalization 上下文**：公开的链上执行，用于修改状态（mappings、storage）。`final fn` 定义和 `final { }` 代码块在这里运行。所有输入和操作都是公开可见的。
+
+在 3.5 中，`async transition`、`async function`、`Future` 等“async”术语看起来像是在表示异步执行，但实际上表示的是“在 finalization 阶段运行于链上”。4.0 的 `final` 关键词更直接地表达了这一点：`final` 代码块或 `final fn` 运行在 finalization 上下文中。
+
+实践上，3.5 将链上逻辑拆分为一个 `async transition` 和一个单独的 `async function`。在 4.0 中，链上逻辑位于入口点内部的 `final { }` 代码块中。
+
+当编译器处理 `final { }` 代码块时，会将其提升为一个独立的 finalization 函数，也就是 3.5 中 `async function` 的链上等价物。相比之下，`final fn` 定义总是在提升发生之前被内联到调用方的 finalization 代码块中，因此它是编译期代码复用机制，而不是独立的链上函数。
+
+### 内联 finalize
+
+**3.5**：分离的 `async transition` 和 `async function`：
+
+```leo
+// 3.5
+program token.aleo {
+    mapping balances: address => u64;
+
+    async transition mint(public receiver: address, public amount: u64) -> Future {
+        return finalize_mint(receiver, amount);
+    }
+
+    async function finalize_mint(public receiver: address, public amount: u64) {
+        let current: u64 = balances.get_or_use(receiver, 0u64);
+        balances.set(receiver, current + amount);
+    }
+}
+```
+
+**4.0**：内联的 `final { }` 代码块：
+
+```leo
+// 4.0
+program token.aleo {
+    mapping balances: address => u64;
+
+    fn mint(public receiver: address, public amount: u64) -> Final {
+        return final {
+            let current: u64 = balances.get_or_use(receiver, 0u64);
+            balances.set(receiver, current + amount);
+        };
+    }
+}
+```
+
+### Async 代码块
+
+如果你在 3.5 中使用了 `async { }` 简写：
+
+```leo
+// 3.5
+program token.aleo {
+    mapping balances: address => u64;
+
+    async transition mint(public receiver: address, public amount: u64) -> Future {
+        let f: Future = async {
+            let current: u64 = balances.get_or_use(receiver, 0u64);
+            balances.set(receiver, current + amount);
+        };
+        return f;
+    }
+}
+```
+
+将 `async` 替换为 `final`，并将 `Future` 替换为 `Final`：
+
+```leo
+// 4.0
+program token.aleo {
+    mapping balances: address => u64;
+
+    fn mint(public receiver: address, public amount: u64) -> Final {
+        let f: Final = final {
+            let current: u64 = balances.get_or_use(receiver, 0u64);
+            balances.set(receiver, current + amount);
+        };
+        return f;
+    }
+}
+```
+
+### 使用 `final fn` 复用 finalization 逻辑
+
+4.0 引入了 `final fn`，作为在多个入口点之间**去重** finalization 逻辑的新机制。不同于 3.5 的 `async function`——它会编译为独立的链上 finalization——`final fn` 的函数体总是在编译期被**内联**到调用方的 `final { }` 代码块中。它是一种代码复用工具，而不是 `async function` 的直接替代品。
+
+`async function` 的直接替代是前文所示的 `final { }` 代码块。当多个入口点共享公共 finalization 逻辑时，可以使用 `final fn`：
+
+```leo
+// 4.0
+final fn update_balance(receiver: address, amount: u64) {
+    let current: u64 = balances.get_or_use(receiver, 0u64);
+    balances.set(receiver, current + amount);
+}
+
+program token.aleo {
+    mapping balances: address => u64;
+
+    fn mint(public receiver: address, public amount: u64) -> Final {
+        return final {
+            update_balance(receiver, amount);
+        };
+    }
+
+    fn airdrop(public r1: address, public r2: address, public amount: u64) -> Final {
+        return final {
+            update_balance(r1, amount);
+            update_balance(r2, amount);
+        };
+    }
+}
+```
+
+这里，`update_balance` 会在编译器将 finalization 代码块提升为独立链上函数之前，被内联到每个调用方的 finalization 代码块中。结果是两个独立的链上 finalization，每个都包含内联后的逻辑；编译输出中并不存在共享的 `update_balance` 函数。
+
+`final fn` 定义位于 `program {}` 代码块**外部**，因为它不是程序公共链上接口的一部分。
+
+### `.await()` 变为 `.run()`
+
+当组合来自外部程序调用的 futures 时：
+
+```leo
+// 3.5
+program example.aleo {
+    async transition compose(value: u8) -> Future {
+        let f: Future = other_program.aleo/action();
+        return finalize_compose(value, f);
+    }
+
+    async function finalize_compose(value: u8, f: Future) {
+        f.await();
+        // ... onchain logic
+    }
+}
+```
+
+```leo
+// 4.0
+program example.aleo {
+    fn compose(value: u8) -> Final {
+        let f: Final = other_program.aleo::action();
+        return final {
+            f.run();
+            // ... onchain logic
+        };
+    }
+}
+```
+
+### 关键词变更总结
+
+| 3.5                                | 4.0                                    |
+| ---------------------------------- | -------------------------------------- |
+| `async transition foo() -> Future` | `fn foo() -> Final`                    |
+| `async function foo()`             | `final { ... }` 代码块                 |
+| `let f: Future = async { ... }`    | `let f: Final = final { ... }`         |
+| `f.await()`                        | `f.run()`                              |
+| `return finalize_foo(args)`        | `return final { finalize_foo(args); }` |
+
+## 模块级 Struct 声明
+
+在 3.5 和 4.0 中，struct 都可以在 `program {}` 代码块内或外声明。4.0 的推荐做法是：不属于链上接口的 struct（即非 record）放在模块级别，也就是 `program {}` 外。Records 仍保留在 program 块内，因为它们是公共接口的一部分。位于 `program {}` 内的 structs 仍然可以编译。
+
+**3.5：**
+
+```leo
+program test.aleo {
+    struct Point {
+        x: i32,
+        y: i32,
+    }
+
+    transition foo(p: Point) -> Point {
+        return Point { x: p.y, y: p.x };
+    }
+}
+```
+
+**4.0（推荐）：**
+
+```leo
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+program test.aleo {
+    fn foo(p: Point) -> Point {
+        return Point { x: p.y, y: p.x };
+    }
+}
+```
+
+## Constructor
+
+`async` 关键词从 constructor 声明中移除。在 3.5 中，构造函数使用 `async constructor` 声明；在 4.0 中，关键词简化为 `constructor`：
+
+```leo
+// 3.5
+program hello.aleo {
+    @noupgrade
+    async constructor() {}
+}
+```
+
+```leo
+// 4.0
+program hello.aleo {
+    @noupgrade
+    constructor() {}
+}
+```
+
+## 外部调用语法：`/` 变为 `::`
+
+在 3.5 中，调用另一个程序中的函数或引用另一个程序中的类型时，使用 `/` 分隔符：
+
+```leo
+// 3.5
+let result: u32 = other_program.aleo/some_fn(1u32);
+let s: other_program.aleo/MyStruct = other_program.aleo/MyStruct { x: 1u32 };
+```
+
+在 4.0 中，分隔符改为 `::`，与 Leo 中其他路径语法保持一致：
+
+```leo
+// 4.0
+let result: u32 = other_program.aleo::some_fn(1u32);
+let s: other_program.aleo::MyStruct = other_program.aleo::MyStruct { x: 1u32 };
+```
+
+这适用于所有跨程序引用：函数调用、类型注解、外部 mapping 访问、外部 storage 访问，以及外部 storage vector 访问。
+
+**迁移方式：** 在 Leo 源文件中，将所有 `program_name.aleo/` 替换为 `program_name.aleo::`。
+
+## 已移除功能
+
+### `script` 函数、解释器和调试器
+
+`script` 关键词、解释器（用于 script 函数的 `leo test`）以及交互式调试器（`leo debug`）均已移除。解释器通过直接遍历 AST 工作，这是一种自定义求值模型，并不能反映代码在链上通过 VM 实际执行的方式。测试可能在解释器中通过，但在编译并运行于真实 VM 时表现不同。
+
+在 3.5 中，测试在 program 块中使用 `@test script`：
+
+```leo
+// 3.5
+import some_program.aleo;
+
+program test_some_program.aleo {
+    @test
+    script test_it() {
+        let result: u32 = some_program.aleo/main(1u32, 2u32);
+        assert_eq(result, 3u32);
+    }
+}
+```
+
+在 4.0 中，`script` 被移除。应在测试文件（位于 `tests/` 下）的 program 块中使用 `@test fn`：
+
+```leo
+// 4.0
+import test_program.aleo;
+
+program test_test_program.aleo {
+    @test
+    fn test_addition() {
+        let result: u32 = test_program.aleo::add(1u32, 2u32);
+        assert_eq(result, 3u32);
+    }
+
+    @test
+    @should_fail
+    fn test_overflow() {
+        let _result: u8 = test_program.aleo::add_u8(255u8, 1u8);
+    }
+}
+```
+
+对于端到端测试和集成测试，请直接使用 SDK，或将 `snarkVM` 作为库使用。
+
+## 新功能
+
+以下内容不是破坏性变更，但在迁移时值得了解。
+
+### Interfaces
+
+4.0 引入了 `interface` 定义，用于指定程序必须满足的合约：
+
+```leo
+interface Counter {
+    fn increment(amount: u64) -> u64;
+}
+
+program my_counter.aleo : Counter {
+    fn increment(amount: u64) -> u64 {
+        return amount + 1u64;
+    }
+}
+```
+
+Interfaces 可以声明函数签名、record 定义、mappings 和 storage variables。程序通过在 program 声明中的 `:` 后列出 interface 来实现它。
+
+Interfaces 支持继承：
+
+```leo
+interface Base {
+    fn get_value() -> u64;
+}
+
+interface Extended : Base {
+    fn set_value(v: u64) -> u64;
+}
+
+program test.aleo : Extended {
+    fn get_value() -> u64 { return 0u64; }
+    fn set_value(v: u64) -> u64 { return v; }
+}
+```
+
+### Inclusive ranges
+
+4.0 为 `for` 循环添加了 `..=`，用于表示包含上界的范围：
+
+```leo
+for i: u32 in 0u32..=10u32 {
+    // i 的取值为 0, 1, 2, ..., 10
+}
+```

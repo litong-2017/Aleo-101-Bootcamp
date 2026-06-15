@@ -2,6 +2,24 @@
 title: Remove
 ---
 
-# Remove
+# `leo remove`
 
-TODO: Add Leo CLI remove content.
+要从你的项目中移除一个依赖，请运行以下命令：
+
+```bash
+leo remove <NAME>
+```
+
+其中，`<NAME>` 是被导入程序的名称。
+
+更多详细信息，请参见 **Dependency Management** 指南。
+
+### Flags:
+
+#### `--all`
+
+移除所有依赖项。如果与 `--dev` 一起使用，则移除所有开发依赖项。
+
+#### `-dev`
+
+移除开发依赖项。

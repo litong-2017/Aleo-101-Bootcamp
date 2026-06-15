@@ -2,6 +2,191 @@
 title: Devnet
 ---
 
-# Devnet
+# 运行 Devnet
 
-TODO: Add Leo devnet guide content.
+本地 devnet 可能是一种较重但可靠的方式，用于在 Aleo 上测试你的应用程序。
+
+## Setup
+
+Leo CLI 提供了一个有用的命令来帮助启动本地 devnet：
+
+```bash
+leo devnet --snarkos <SNARKOS> --snarkos-features test_network
+```
+
+`<SNARKOS>` 是已安装的 **snarkOS** 二进制文件路径。snarkOS 是构成 Aleo 网络骨干的去中心化操作系统。
+
+如果你没有安装 snarkOS，可以传入 `--install` 标志，CLI 会自动下载、编译并将二进制文件存储到 `<SNARKOS>` 指定的路径。
+
+```bash
+leo devnet --snarkos <SNARKOS> --snarkos-features test_network --install
+```
+
+> info
+> Windows 用户需要执行一些额外步骤，以便 snarkOS 能够正确安装：
+>
+> 1. 在最初安装 Rust 时，你应该已经被自动提示安装带有 MSVC 2022 C++ 构建工具的 Visual Studio。
+> 2. 打开 Visual Studio Installer，并安装适用于 Windows 的 C++ Clang Compiler，以及 Windows 10 SDK 或 Windows 11 SDK（二者取决于你的操作系统）。记下已安装工具的安装路径。它的形式应为：`{PATH}\Microsoft Visual Studio\2022\BuildTools`。
+> 3. 在上述构建工具目录中，你应该能找到名为 `libclang.dll` 的文件位置。对于基于 `x86` 的系统，它应该位于 `VC\Tools\Llvm\bin` 子目录中。对于基于 `x64` 的系统，它应该位于 `VC\Tools\Llvm\x64\bin` 子目录中。
+> 4. 一旦你获得了 `libclang.dll` 的完整路径，请为你的系统创建 `LIBCLANG_PATH` 环境变量，并将其设置为该路径。
+> 5. snarkOS 现在应该可以正确编译和运行。
+
+`tmux` 命令允许你在本地 devnet 的节点之间切换。你可以在启动时传入 `--tmux` 标志来启用它：
+
+```bash
+leo devnet --snarkos <SNARKOS> --snarkos-features test_network --tmux
+```
+
+> info
+> 此功能仅在基于 Unix 的系统上可用。
+
+你需要先安装 `tmux` 包：
+
+### MacOS
+
+要在 macOS 上安装 `tmux`，你可以使用 Homebrew 包管理器。如果你尚未安装 Homebrew，可以在其网站找到说明。安装 Homebrew 后，运行：
+
+```bash
+brew install tmux
+```
+
+### Ubuntu
+
+在 Ubuntu 和其他基于 Debian 的系统上，你可以使用 apt 包管理器：
+
+```bash
+sudo apt update
+sudo apt install tmux
+```
+
+以下是一些有用的 `tmux` 默认命令：
+
+```bash
+# To toggle to the next node in a local devnet
+Ctrl+b n
+# To toggle to the previous node in a local devnet
+Ctrl+b p
+# To scroll easily, press q to quit
+Ctrl+b q
+# To select a node in a local devnet
+Ctrl+b w
+# To select a node manually in a local devnet
+Ctrl+b :select-window -t {NODE_ID}
+# To stop a local devnet
+Ctrl+b :kill-session
+```
+
+完整的 `leo devnet` CLI 文档见此处。
+
+## Usage
+
+当你启动 devnet 时，CLI 实际上会通过 snarkOS 二进制文件从创世状态启动一个新的区块链实例。这意味着链将从区块 0 和共识版本 1 开始，并且唯一部署的程序将是 `credits.aleo`。
+
+随着区块生成，链的高度会增加。在不同高度处，新的共识版本会被激活，从而解锁随着 Aleo 网络成熟而实现的各种功能。默认情况下，devnet 会采用来自 Testnet 的预定义共识高度：
+
+```rust
+(ConsensusVersion::V1, 0),
+(ConsensusVersion::V2, 2_950_000),
+(ConsensusVersion::V3, 4_800_000),
+(ConsensusVersion::V4, 6_625_000),
+(ConsensusVersion::V5, 6_765_000),
+(ConsensusVersion::V6, 7_600_000),
+(ConsensusVersion::V7, 8_365_000),
+(ConsensusVersion::V8, 9_173_000),
+(ConsensusVersion::V9, 9_800_000),
+(ConsensusVersion::V10, 10_525_000),
+(ConsensusVersion::V11, 11_952_000),
+```
+
+显然，你没有时间等待 1000 万个区块来访问像程序可升级性这样的较新功能，因此 `leo devnet` 提供了一种通过 `--consensus-heights` 标志手动设置共识高度的方式：
+
+```bash
+leo devnet --snarkos <SNARKOS> --snarkos-features test_network --consensus-heights 0,1,2,3,4,5,6,7,8,9,10
+```
+
+请注意，如果你想访问最新功能，传给该标志的逗号分隔参数数量必须恰好等于最新的共识版本。
+
+每次你停止并重启链时，之前的状态和历史都会被保存。你可以通过传入 `--clear-storage` 标志来清除任何先前历史：
+
+```bash
+leo devnet --snarkos <SNARKOS> --snarkos-features test_network --clear-storage
+```
+
+如果你希望在不更改名称的情况下重新部署程序，清除账本历史可能会很有用。但是，这将擦除所有交易历史，并从创世状态启动一个新的 Aleo 区块链实例。
+
+## Deploying and Executing
+
+在本地 devnet 上部署或执行程序时，请确保 endpoint 设置为 `http://localhost:3030`，而不是任何外部 API endpoint。你可以通过手动设置 `ENDPOINT` 环境变量、在 CLI 中传入 `--endpoint http://localhost:3030` 标志，或者在 Leo 项目根目录中的 `.env` 文件里设置 `ENDPOINT` 变量来完成。
+
+你还需要 credits 来为 devnet 上的交易提供资金。snarkOS 会自动初始化四个开发账户，这些账户带有 Aleo credits，可用于测试目的。
+
+```bash
+# Account 0
+APrivateKey1zkp8CZNn3yeCseEtxuVPbDCwSyhGW6yZKUYKfgXmcpoGPWH
+AViewKey1mSnpFFC8Mj4fXbK5YiWgZ3mjiV8CxA79bYNa8ymUpTrw
+aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px
+
+# Account 1
+APrivateKey1zkp2RWGDcde3efb89rjhME1VYA8QMxcxep5DShNBR6n8Yjh
+AViewKey1pTzjTxeAYuDpACpz2k72xQoVXvfY4bJHrjeAQp6Ywe5g
+aleo1s3ws5tra87fjycnjrwsjcrnw2qxr8jfqqdugnf0xzqqw29q9m5pqem2u4t
+
+# Account 2
+APrivateKey1zkp2GUmKbVsuc1NSj28pa1WTQuZaK5f1DQJAT6vPcHyWokG
+AViewKey1u2X98p6HDbsv36ZQRL3RgxgiqYFr4dFzciMiZCB3MY7A
+aleo1ashyu96tjwe63u0gtnnv8z5lhapdu4l5pjsl2kha7fv7hvz2eqxs5dz0rg
+
+# Account 3
+APrivateKey1zkpBjpEgLo4arVUkQmcLdKQMiAKGaHAQVVwmF8HQby8vdYs
+AViewKey1iKKSsdnatHcm27goNC7SJxhqQrma1zkq91dfwBdxiADq
+aleo12ux3gdauck0v60westgcpqj7v8rrcr3v346e4jtq04q7kkt22czsh808v2
+```
+
+你可以通过手动设置 `PRIVATE_KEY` 环境变量、在 CLI 中传入 `--private-key http://localhost:3030` 标志，或者在 Leo 项目根目录中的 `.env` 文件里设置 `PRIVATE_KEY` 变量，来指定要使用的私钥。
+
+一旦你的私钥和 endpoint 已正确设置，部署和执行在很大程度上会像在 Testnet 或 Mainnet 上一样运行。关于这两个流程的更多详细信息，请查看 **Deploying** 和 **Executing** 指南。
+
+## Querying Transaction Status
+
+你可以使用以下 API endpoint 检查你的交易：
+
+```bash
+GET http://localhost:3030/testnet/transaction/{TRANSACTION_ID}
+```
+
+或者使用 CLI 中的 `leo query`：
+
+```bash
+leo query transaction {TRANSACTION_ID}
+```
+
+交易 API endpoint 有助于验证交易是成功还是失败。由于成功和失败的交易都会执行一笔费用交易，如果只出现费用交易，这就清楚地表明该交易已经失败。请注意，在 Testnet 和 Mainnet 上，失败的交易仍然需要费用，因为网络正在执行计算。
+
+完整的 API endpoint 列表见此处。
+
+## Record Scanning
+
+你可以使用已安装的 snarkOS 二进制文件中的 CLI 来查看你的 records。首先，导航到你安装该二进制文件的目录。然后使用以下命令语法：
+
+```bash
+./snarkos developer scan --endpoint http://localhost:3030 --private-key {YOUR_PRIVATE_KEY} --start <block_number> --network 1
+```
+
+将 `block_number` 设置为 `0` 会列出从创世区块开始创建的所有 records，包括你的测试 credit records。
+
+示例输出：
+
+```bash
+⚠️  Attention - Scanning the entire chain. This may take a while...
+
+Scanning 3 blocks for records (100% complete)...
+
+[
+  "{  owner: aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px.private,  microcredits: 23437500000000u64.private,  _nonce: 3666670146276262240199958044811329632452609778779651964870759629195088099828group.public}",
+  "{  owner: aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px.private,  microcredits: 23437500000000u64.private,  _nonce: 4536868268814456227312360347031739423312689137706933033938812386306238998060group.public}",
+  "{  owner: aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px.private,  microcredits: 23437500000000u64.private,  _nonce: 205967862164714901379497326815256981526025583494109091059194305832749867953group.public}",
+  "{  owner: aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px.private,  microcredits: 23437500000000u64.private,  _nonce: 4424806931746512507605174575961455750579179367541686805196254590136284583805group.public}"
+]
+```
+
+将 `block_number` 设置为 `1` 或更高，将从扫描中排除上述 credit records。
